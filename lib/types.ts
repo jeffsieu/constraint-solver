@@ -1,41 +1,46 @@
 export interface AttributeGroup {
-  id: string
-  name: string
-  attributes: string[]
+  id: string;
+  name: string;
+  attributes: string[];
 }
 
 export interface Record {
-  id: string
-  value: number
-  attributes: string[]
+  id: string;
+  value: number;
+  attributes: string[];
 }
 
 export interface SimpleRequirement {
-  id: string
-  type: "simple"
-  constraint: "minimum" | "maximum"
-  value: number
-  attributes: string[]
+  id: string;
+  type: "simple";
+  constraint: "minimum" | "maximum";
+  value: number;
+  attributes: string[];
 }
 
 export interface ComplexRequirement {
-  id: string
-  type: "complex"
-  operator: "AND" | "OR"
-  children: Requirement[]
+  id: string;
+  type: "complex";
+  operator: "AND" | "OR";
+  children: Requirement[];
 }
 
-export type Requirement = SimpleRequirement | ComplexRequirement
+export type Requirement = SimpleRequirement | ComplexRequirement;
 
 export interface Solution {
-  totalValue: number
+  totalValue: number;
   selectedRecords: {
-    recordId: string
-    weight: number
-  }[]
+    recordId: string;
+    weight: number;
+  }[];
   minimumRequirements: {
-    attributes: string[]
-    target: number
-    achieved: number
-  }[]
+    attributes: string[];
+    target: number;
+    achieved: number;
+  }[];
+  maximumRequirements?: {
+    attributes: string[];
+    target: number;
+    used: number;
+  }[];
 }

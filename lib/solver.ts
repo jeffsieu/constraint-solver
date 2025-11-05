@@ -1,4 +1,9 @@
-import type { Record as RecordType, Requirement, Solution } from "./types";
+import type {
+  Record as RecordType,
+  Requirement,
+  Solution,
+  AttributeGroup,
+} from "./types";
 import type { Model } from "yalps";
 
 // Import the solver dynamically to avoid SSR issues
@@ -9,86 +14,173 @@ if (typeof window !== "undefined") {
   });
 }
 
-export function solveProblem(
+interface ScaledProblem {
+  records: RecordType[];
+  requirements: Requirement;
+  targetValue: number;
+  scaleFactor: number;
+}
+
+function scaleProblem(
   records: RecordType[],
   requirements: Requirement,
   targetValue: number,
-  targetUnit: "hours" | "occurrences"
+  scaleFactor: number
+): ScaledProblem {
+  // Scale all record values
+  const scaledRecords = records.map((record) => ({
+    ...record,
+    value: Math.round(record.value * scaleFactor),
+  }));
+
+  // Scale requirement values recursively
+  const scaleRequirement = (req: Requirement): Requirement => {
+    if (req.type === "simple") {
+      return {
+        ...req,
+        value: Math.round(req.value * scaleFactor),
+      };
+    } else {
+      return {
+        ...req,
+        children: req.children.map(scaleRequirement),
+      };
+    }
+  };
+
+  const scaledRequirements = scaleRequirement(requirements);
+  const scaledTargetValue = Math.round(targetValue * scaleFactor);
+
+  return {
+    records: scaledRecords,
+    requirements: scaledRequirements,
+    targetValue: scaledTargetValue,
+    scaleFactor,
+  };
+}
+
+function assertIntegerValues(
+  records: RecordType[],
+  requirements: Requirement,
+  targetValue: number
+): void {
+  // Assert all record values are integers
+  records.forEach((record, idx) => {
+    if (!Number.isInteger(record.value)) {
+      throw new Error(
+        `Record ${idx} value ${record.value} is not an integer. Problem must be scaled first.`
+      );
+    }
+  });
+
+  // Assert all requirement values are integers recursively
+  const assertRequirementInteger = (req: Requirement, path: string) => {
+    if (req.type === "simple") {
+      if (!Number.isInteger(req.value)) {
+        throw new Error(
+          `Requirement ${path} value ${req.value} is not an integer. Problem must be scaled first.`
+        );
+      }
+    } else {
+      req.children.forEach((child, idx) => {
+        assertRequirementInteger(child, `${path}.children[${idx}]`);
+      });
+    }
+  };
+
+  assertRequirementInteger(requirements, "requirements");
+
+  // Assert target value is integer
+  if (!Number.isInteger(targetValue)) {
+    throw new Error(
+      `Target value ${targetValue} is not an integer. Problem must be scaled first.`
+    );
+  }
+}
+
+function solveProblemScaled(
+  records: RecordType[],
+  requirements: Requirement,
+  targetValue: number,
+  attributeGroups: AttributeGroup[]
 ): Solution {
   if (!solve) {
     throw new Error("Solver not loaded yet. Please try again.");
   }
 
-  // Scale factor for converting to integers (multiply by 10 to handle 0.1 precision)
-  const SCALE = 10;
+  // Assert that all values are integers (i.e., problem has been scaled)
+  assertIntegerValues(records, requirements, targetValue);
 
   // Build the LP model for YALPS
-  const constraints: { [key: string]: { min?: number; max?: number } } = {};
+  const constraints: {
+    [key: string]: { [key: string]: number | undefined } & {
+      min?: number;
+      max?: number;
+    };
+  } = {};
   const variables: { [key: string]: { [key: string]: number } } = {};
   const integers: string[] = [];
-
-  console.log("[v0] Building LP model with records:", records);
-  console.log("[v0] Target value:", targetValue, "Unit:", targetUnit);
-
-  // Add variables for each record
-  records.forEach((record, idx) => {
-    const varName = `r${idx}`;
-    const scaledValue = Math.round(record.value * SCALE);
-
-    variables[varName] = {
-      totalValue: scaledValue,
-    };
-
-    if (targetUnit === "hours") {
-      // Hours can be split into 0.1 units, so max weight is 1.0 (scaled to 10)
-      constraints[`${varName}_max`] = { max: 10 }; // 1.0 * SCALE
-      variables[varName][`${varName}_max`] = 1;
-    } else {
-      // Occurrences: can only take full record (weight = 1) or nothing (weight = 0)
-      constraints[`${varName}_max`] = { max: 10 }; // 1.0 * SCALE
-      variables[varName][`${varName}_max`] = 1;
-      integers.push(varName); // Force integer solution for occurrences
-    }
-
-    // Add min constraint (>= 0)
-    constraints[`${varName}_min`] = { min: 0 };
-    variables[varName][`${varName}_min`] = 1;
-  });
 
   const minimumRequirements: Array<{
     attributes: string[];
     target: number;
   }> = [];
+  const maximumRequirements: Array<{
+    attributes: string[];
+    target: number;
+  }> = [];
 
-  // Process requirements tree
+  // Process requirements tree FIRST to build minimumRequirements
+  // Build attribute -> group mapping from provided attributeGroups param
+  const attributeToGroupMap: Record<string, string[]> = {};
+  attributeGroups.forEach((group) => {
+    group.attributes.forEach((attr) => {
+      attributeToGroupMap[attr] = group.attributes;
+    });
+  });
+
   const processRequirement = (req: Requirement, constraintPrefix: string) => {
     if (req.type === "simple") {
-      const constraintName = `${constraintPrefix}_${req.id}`;
-      const constraint: any = {};
-
-      // Find matching records
-      records.forEach((record, idx) => {
-        const matches = req.attributes.every((attr) =>
-          record.attributes.includes(attr)
-        );
-        if (matches) {
-          constraint[`r${idx}`] = Math.round(record.value * SCALE);
-        }
-      });
+      const useAttributeConstraint = req.attributes.length === 1;
+      const constraintName = useAttributeConstraint
+        ? `attribute_${req.attributes[0]}`
+        : `${constraintPrefix}_${req.id}`;
 
       if (req.constraint === "maximum") {
-        constraint.max = Math.round(req.value * SCALE);
-      } else {
-        constraint.min = Math.round(req.value * SCALE);
+        if (!constraints[constraintName]) constraints[constraintName] = {};
+        constraints[constraintName].max = req.value;
+        // Only track simple single-attribute maximums for progress display
+        if (useAttributeConstraint) {
+          maximumRequirements.push({
+            attributes: req.attributes,
+            target: req.value,
+          });
+        }
+      } else if (req.constraint === "minimum") {
+        // For min with single attribute: cap other attributes in the same group
+        if (useAttributeConstraint) {
+          const minAttr = req.attributes[0];
+          const groupAttrs = attributeToGroupMap[minAttr] || [];
+          groupAttrs.forEach((attr) => {
+            if (attr !== minAttr) {
+              const otherConstraint = `attribute_${attr}`;
+              if (!constraints[otherConstraint])
+                constraints[otherConstraint] = {};
+              const proposedMax = targetValue - req.value;
+              constraints[otherConstraint].max = Math.min(
+                constraints[otherConstraint].max ?? proposedMax,
+                proposedMax
+              );
+            }
+          });
+        }
         minimumRequirements.push({
           attributes: req.attributes,
           target: req.value,
         });
       }
-
-      constraints[constraintName] = constraint;
+      // No min constraint is added directly
     } else {
-      // Complex requirement
       req.children.forEach((child, idx) => {
         processRequirement(child, `${constraintPrefix}_${req.operator}_${idx}`);
       });
@@ -97,23 +189,71 @@ export function solveProblem(
 
   processRequirement(requirements, "req");
 
+  // Calculate score for each record based on minimum requirements fulfilled
+  const calculateRecordScore = (record: (typeof records)[number]): number => {
+    let minConditionsFulfilled = 0;
+
+    for (const minReq of minimumRequirements) {
+      // Check if record has all attributes required by this minimum requirement
+      const hasAllAttributes = minReq.attributes.every((reqAttr) =>
+        record.attributes.includes(reqAttr)
+      );
+
+      if (hasAllAttributes) {
+        minConditionsFulfilled++;
+      }
+    }
+
+    return 1 + minConditionsFulfilled;
+  };
+
+  // Add variables for each record (using calculated scores)
+  records.forEach((record, idx) => {
+    const varName = `r${idx}`;
+
+    // Assert integer value (already checked, but double-check)
+    if (!Number.isInteger(record.value)) {
+      throw new Error(`Record ${idx} has non-integer value: ${record.value}`);
+    }
+
+    // Calculate score based on minimum requirements this record fulfills
+    const score = calculateRecordScore(record);
+
+    variables[varName] = {
+      value: score,
+    };
+
+    // Add coefficients for each attribute this record has
+    record.attributes.forEach((attr) => {
+      const constraintName = `attribute_${attr}`;
+      variables[varName][constraintName] = 1;
+    });
+
+    variables[varName][varName] = 1;
+
+    integers.push(varName); // Force integer solution for occurrences
+  });
+
+  // Add constraint for each variable (limits the value contribution of each record)
+  records.forEach((record, idx) => {
+    const varName = `r${idx}`;
+    constraints[varName] = { max: record.value };
+  });
+
+  // Add value constraint (total value should not exceed target)
+  constraints["value"] = { max: targetValue };
+
   // Build the YALPS model
   const model: Model = {
     direction: "maximize",
-    objective: "totalValue",
+    objective: "value",
     constraints,
     variables,
     integers: integers.length > 0 ? integers : undefined,
   };
 
-  console.log("[v0] Complete LP model:", JSON.stringify(model, null, 2));
-
   // Solve the model
   const result = solve(model);
-
-  console.log("[v0] Solver result:", result);
-  console.log("[v0] Result status:", result.status);
-  console.log("[v0] Result keys:", result ? Object.keys(result) : "null");
 
   if (!result || result.status !== "optimal") {
     throw new Error(
@@ -125,21 +265,20 @@ export function solveProblem(
   const variableMap = new Map(result.variables);
 
   const selectedRecords = records.map((record, idx) => {
-    const weight = ((variableMap.get(`r${idx}`) as number) || 0) / SCALE;
-    console.log(`[v0] Record ${idx} (${record.value}): weight = ${weight}`);
+    const weight = (variableMap.get(`r${idx}`) as number) || 0;
     return {
       recordId: record.id,
       weight,
     };
   });
 
-  const totalValue = result.result !== undefined ? result.result / SCALE : 0;
-  console.log(
-    "[v0] Total value:",
-    totalValue,
-    "from result.result:",
-    result.result
-  );
+  // Calculate total value by summing up the actual value constraint
+  // (not the score, which is what result.result contains)
+  let totalValue = 0;
+  records.forEach((record, idx) => {
+    const weight = (variableMap.get(`r${idx}`) as number) || 0;
+    totalValue += weight;
+  });
 
   // Calculate achieved minimum requirements
   const achievedMinimums = minimumRequirements.map((minReq) => {
@@ -149,8 +288,8 @@ export function solveProblem(
         record.attributes.includes(attr)
       );
       if (matches) {
-        const weight = ((variableMap.get(`r${idx}`) as number) || 0) / SCALE;
-        achieved += record.value * weight;
+        const weight = (variableMap.get(`r${idx}`) as number) || 0;
+        achieved += weight;
       }
     });
     return {
@@ -160,9 +299,69 @@ export function solveProblem(
     };
   });
 
+  // Calculate used amounts for maximum requirements
+  const usedMaximums = maximumRequirements.map((maxReq) => {
+    let used = 0;
+    records.forEach((record, idx) => {
+      const matches = maxReq.attributes.every((attr) =>
+        record.attributes.includes(attr)
+      );
+      if (matches) {
+        const weight = (variableMap.get(`r${idx}`) as number) || 0;
+        used += weight;
+      }
+    });
+    return {
+      attributes: maxReq.attributes,
+      target: maxReq.target,
+      used,
+    };
+  });
+
   return {
     totalValue,
     selectedRecords,
     minimumRequirements: achievedMinimums,
+    maximumRequirements: usedMaximums,
+  };
+}
+
+export function solveProblem(
+  records: RecordType[],
+  requirements: Requirement,
+  targetValue: number,
+  targetUnit: "hours" | "occurrences",
+  attributeGroups: AttributeGroup[]
+): Solution {
+  const scaleFactor = targetUnit === "hours" ? 10 : 1;
+
+  // Scale the problem first
+  const scaled = scaleProblem(records, requirements, targetValue, scaleFactor);
+
+  // Solve with scaled values
+  const scaledSolution = solveProblemScaled(
+    scaled.records,
+    scaled.requirements,
+    scaled.targetValue,
+    attributeGroups
+  );
+
+  // Descale the solution
+  return {
+    totalValue: scaledSolution.totalValue / scaleFactor,
+    selectedRecords: scaledSolution.selectedRecords.map((sr) => ({
+      recordId: sr.recordId,
+      weight: sr.weight / scaleFactor,
+    })),
+    minimumRequirements: scaledSolution.minimumRequirements.map((mr) => ({
+      attributes: mr.attributes,
+      target: mr.target / scaleFactor,
+      achieved: mr.achieved / scaleFactor,
+    })),
+    maximumRequirements: scaledSolution.maximumRequirements?.map((mx) => ({
+      attributes: mx.attributes,
+      target: mx.target / scaleFactor,
+      used: mx.used / scaleFactor,
+    })),
   };
 }
