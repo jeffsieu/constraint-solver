@@ -10,7 +10,22 @@ import { AttributeGroupsInput } from "@/components/attribute-groups-input";
 import { RecordInput } from "@/components/record-input";
 import { RequirementsTree } from "@/components/requirements-tree";
 import { SolutionDisplay } from "@/components/solution-display";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { solveProblem } from "@/lib/solver";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerClose,
+} from "@/components/ui/drawer";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import type {
   Record,
   Requirement,
@@ -105,6 +120,8 @@ export default function Home() {
   const [isSpecExpanded, setIsSpecExpanded, specExpandedReady] =
     useLocalStorage<boolean>("solverSpecExpanded", true);
   const [hoveredRecordId, setHoveredRecordId] = useState<string | null>(null);
+  const [isSolutionOpen, setIsSolutionOpen] = useState(false);
+  const [showStickySpec, setShowStickySpec] = useState(false);
 
   // Reset form when localStorage data hydrates (only once when ready)
   useEffect(() => {
@@ -119,6 +136,31 @@ export default function Home() {
     const sub = methods.watch((vals) => setPersisted(vals as SolverForm));
     return () => sub.unsubscribe();
   }, [methods, setPersisted]);
+
+  // Track scroll position to show/hide sticky spec on mobile
+  useEffect(() => {
+    const handleScroll = () => {
+      const specCard = document.getElementById("spec-card");
+      if (specCard) {
+        const rect = specCard.getBoundingClientRect();
+        const cardHeight = rect.height;
+
+        // Only show when card is scrolled up past the viewport
+        if (rect.top < 0) {
+          // Card has started scrolling out of view at the top
+          const scrolledOutAmount = Math.abs(rect.top);
+          const scrolledOutPercentage = (scrolledOutAmount / cardHeight) * 100;
+          setShowStickySpec(scrolledOutPercentage > 50);
+        } else {
+          // Card is still fully visible or below viewport
+          setShowStickySpec(false);
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Auto-calculate solution when form values change
   useEffect(() => {
@@ -154,7 +196,43 @@ export default function Home() {
   return (
     <FormProvider {...methods}>
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Sticky spec bar - mobile only, shows when spec card is out of view */}
+        <div
+          className={`md:hidden fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md transition-transform duration-300 ${
+            showStickySpec ? "translate-y-0" : "-translate-y-full"
+          }`}
+        >
+          <button
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              setIsSpecExpanded(true);
+            }}
+            className="w-full p-3 text-left hover:bg-accent/50 transition-colors"
+          >
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div>
+                  <span className="font-medium text-foreground">Target:</span>{" "}
+                  {targetValue} {globalUnit}
+                </div>
+                <div>
+                  <span className="font-medium text-foreground">Groups:</span>{" "}
+                  {attributeGroups.map((g) => g.name).join(", ") || "None"}
+                </div>
+              </div>
+              <div className="text-xs">
+                <span className="font-medium text-foreground">
+                  Requirements:
+                </span>
+                <div className="mt-1 text-muted-foreground">
+                  {renderRequirementPreview(requirements)}
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div className="container mx-auto px-4 py-8 max-w-7xl pb-24 md:pb-8">
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-2">
               Constraint Satisfaction Solver
@@ -165,7 +243,7 @@ export default function Home() {
           </div>
 
           {/* Combined Configuration Card - Full Width */}
-          <Card className="p-6 mb-6">
+          <Card className="p-6 mb-6" id="spec-card">
             {/* Collapsible Header */}
             <button
               onClick={() => setIsSpecExpanded(!isSpecExpanded)}
@@ -230,20 +308,25 @@ export default function Home() {
                       <Label htmlFor="unit">
                         Unit Type (applies to all records)
                       </Label>
-                      <select
-                        id="unit"
+                      <Select
                         value={globalUnit}
-                        onChange={(e) =>
+                        onValueChange={(val) =>
                           methods.setValue(
                             "globalUnit",
-                            e.target.value as "hours" | "occurrences"
+                            val as "hours" | "occurrences"
                           )
                         }
-                        className="w-full px-3 py-2 border border-input bg-background rounded-md"
                       >
-                        <option value="hours">Hours</option>
-                        <option value="occurrences">Occurrences</option>
-                      </select>
+                        <SelectTrigger className="w-full rounded-md" id="unit">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hours">Hours</SelectItem>
+                          <SelectItem value="occurrences">
+                            Occurrences
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="target">Target Amount</Label>
@@ -279,17 +362,19 @@ export default function Home() {
                       methods.setValue("attributeGroups", g)
                     }
                   />
-                </div>
-
-                {/* Requirements Tree Section */}
-                <div>
-                  <h2 className="text-xl font-semibold mb-4 text-foreground">
-                    Requirements Tree
-                  </h2>
-                  <RequirementsTree
-                    requirement={requirements}
-                    setRequirement={(r) => methods.setValue("requirements", r)}
-                  />
+                  {/* Requirements Tree - placed below Attribute Groups */}
+                  <div className="mt-6">
+                    <h3 className="text-lg font-semibold mb-3 text-foreground">
+                      Requirements
+                    </h3>
+                    <RequirementsTree
+                      requirement={requirements}
+                      setRequirement={(r) =>
+                        methods.setValue("requirements", r)
+                      }
+                      attributeGroups={attributeGroups}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -309,6 +394,7 @@ export default function Home() {
                         key={index}
                         variant="outline"
                         size="sm"
+                        className="rounded-md"
                         onClick={() => {
                           methods.setValue("records", scenario.records);
                         }}
@@ -339,39 +425,118 @@ export default function Home() {
                   <p className="text-destructive font-medium">{error}</p>
                 </div>
               )}
-              {solutionReady && solution ? (
-                <SolutionDisplay
-                  solution={solution}
-                  records={records}
-                  unit={globalUnit}
-                  targetValue={targetValue}
-                  hoveredRecordId={hoveredRecordId}
-                  onHoverRecord={setHoveredRecordId}
-                />
-              ) : (
-                <Card className="p-12 text-center">
-                  <div className="text-muted-foreground">
-                    <svg
-                      className="mx-auto h-16 w-16 mb-4 opacity-50"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <p className="text-lg font-medium">No solution yet</p>
-                    <p className="text-sm mt-2">
-                      Configure your problem and click "Solve Problem" to see
-                      results
-                    </p>
-                  </div>
-                </Card>
-              )}
+              {/* Desktop / large screens: show Solution card */}
+              <div className="hidden md:block">
+                {solutionReady && solution ? (
+                  <SolutionDisplay
+                    solution={solution}
+                    records={records}
+                    unit={globalUnit}
+                    targetValue={targetValue}
+                    hoveredRecordId={hoveredRecordId}
+                    onHoverRecord={setHoveredRecordId}
+                  />
+                ) : (
+                  <Card className="p-12 text-center">
+                    <div className="text-muted-foreground">
+                      <svg
+                        className="mx-auto h-16 w-16 mb-4 opacity-50"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <p className="text-lg font-medium">No solution yet</p>
+                      <p className="text-sm mt-2">
+                        Configure your problem and click "Solve Problem" to see
+                        results
+                      </p>
+                    </div>
+                  </Card>
+                )}
+              </div>
+
+              {/* Mobile: fixed bottom bar with summary and drawer trigger */}
+              <div className="md:hidden">
+                <div className="fixed inset-x-4 bottom-4 z-50">
+                  <button
+                    className="w-full rounded-md border border-border bg-card p-3 shadow-md transition-colors text-left cursor-pointer"
+                    onClick={() => setIsSolutionOpen(true)}
+                  >
+                    {/* Summary line: show total value / target */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-muted-foreground mb-1">
+                          Best match
+                        </div>
+                        <div className="text-lg font-semibold text-foreground mb-2">
+                          {solution
+                            ? `${
+                                globalUnit === "occurrences"
+                                  ? Math.round(solution.totalValue)
+                                  : solution.totalValue.toFixed(1)
+                              } / ${
+                                globalUnit === "occurrences"
+                                  ? Math.round(targetValue)
+                                  : targetValue.toFixed(1)
+                              } ${globalUnit}`
+                            : "No solution"}
+                        </div>
+                        {solution && (
+                          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-300"
+                              style={{
+                                width: `${Math.min(
+                                  (solution.totalValue / targetValue) * 100,
+                                  100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Tap to view
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                <Drawer open={isSolutionOpen} onOpenChange={setIsSolutionOpen}>
+                  <DrawerContent
+                    className="max-h-[90vh]"
+                    data-vaul-drawer-direction="bottom"
+                  >
+                    <VisuallyHidden>
+                      <DrawerTitle>Best match</DrawerTitle>
+                    </VisuallyHidden>
+                    <div className="p-4 overflow-y-auto">
+                      {solutionReady && solution ? (
+                        <SolutionDisplay
+                          solution={solution}
+                          records={records}
+                          unit={globalUnit}
+                          targetValue={targetValue}
+                          hoveredRecordId={hoveredRecordId}
+                          onHoverRecord={setHoveredRecordId}
+                          showCard={false}
+                        />
+                      ) : (
+                        <div className="text-muted-foreground">
+                          No solution yet
+                        </div>
+                      )}
+                    </div>
+                  </DrawerContent>
+                </Drawer>
+              </div>
             </div>
           </div>
         </div>

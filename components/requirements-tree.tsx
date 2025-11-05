@@ -3,17 +3,27 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import type { Requirement } from "@/lib/types";
 
 interface RequirementsTreeProps {
   requirement: Requirement;
   setRequirement: (req: Requirement) => void;
+  attributeGroups?: { id: string; name: string; attributes: string[] }[];
 }
 
 export function RequirementsTree({
   requirement,
   setRequirement,
+  attributeGroups = [],
 }: RequirementsTreeProps) {
   const [rawValues, setRawValues] = useState<Record<string, string>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -144,18 +154,22 @@ export function RequirementsTree({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Constraint</Label>
-                <select
+                <Select
                   value={req.constraint}
-                  onChange={(e) =>
+                  onValueChange={(val) =>
                     updateRequirement(req.id, {
-                      constraint: e.target.value as "minimum" | "maximum",
+                      constraint: val as "minimum" | "maximum",
                     })
                   }
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
                 >
-                  <option value="minimum">Minimum</option>
-                  <option value="maximum">Maximum</option>
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minimum">Minimum</SelectItem>
+                    <SelectItem value="maximum">Maximum</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label className="text-xs">Value</Label>
@@ -171,11 +185,29 @@ export function RequirementsTree({
               </div>
             </div>
             <div>
-              <Label className="text-xs">Attributes (comma-separated)</Label>
-              <Input
-                value={rawValues[req.id] ?? req.attributes.join(", ")}
-                onChange={(e) => updateAttributes(req.id, e.target.value)}
-                placeholder="e.g., Day, Free"
+              <Label className="text-xs">Attributes</Label>
+              <MultiSelect
+                options={attributeGroups.map((g) => {
+                  // Check if any attribute from this group is already selected
+                  const hasSelectedFromGroup = g.attributes.some((attr) =>
+                    req.attributes.includes(attr)
+                  );
+
+                  // If an attribute from this group is selected, disable all others in the group
+                  return {
+                    label: g.name,
+                    options: g.attributes.map((attr) => ({
+                      value: attr,
+                      disabled:
+                        hasSelectedFromGroup && !req.attributes.includes(attr),
+                    })),
+                  } as const;
+                })}
+                selected={req.attributes}
+                onChange={(next) =>
+                  updateRequirement(req.id, { attributes: next })
+                }
+                placeholder="Select attributes"
               />
             </div>
           </div>
@@ -191,7 +223,7 @@ export function RequirementsTree({
           </div>
         )}
         <div className="flex-1">
-          <div className="p-4 border-2 border-primary/30 rounded-md space-y-3 bg-card">
+          <div className="p-4 border rounded-md space-y-3 bg-[#ffd7a8] border-border">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => toggleCollapse(req.id)}
@@ -236,20 +268,26 @@ export function RequirementsTree({
               <>
                 <div>
                   <Label className="text-xs">Operator</Label>
-                  <select
+                  <Select
                     value={req.operator}
-                    onChange={(e) =>
+                    onValueChange={(val) =>
                       updateRequirement(req.id, {
-                        operator: e.target.value as "AND" | "OR",
+                        operator: val as "AND" | "OR",
                       })
                     }
-                    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
                   >
-                    <option value="AND">AND (all must be satisfied)</option>
-                    <option value="OR">
-                      OR (at least one must be satisfied)
-                    </option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AND">
+                        AND (all must be satisfied)
+                      </SelectItem>
+                      <SelectItem value="OR">
+                        OR (at least one must be satisfied)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex gap-2">
                   <Button

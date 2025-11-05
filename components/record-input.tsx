@@ -66,10 +66,10 @@ export function RecordInput({
       {records.map((record, index) => (
         <div
           key={record.id}
-          className={`p-3 border rounded-md bg-card transition-all ${
+          className={`p-3 rounded-md transition-colors border-2 ${
             hoveredRecordId === record.id
-              ? "border-primary ring-2 ring-primary/20"
-              : "border-border"
+              ? "border-primary bg-accent/20"
+              : "bg-card border-border hover:bg-accent/10"
           }`}
           onMouseEnter={() => onHoverRecord?.(record.id)}
           onMouseLeave={() => onHoverRecord?.(null)}
@@ -121,12 +121,13 @@ export function RecordInput({
               ))}
             </div>
             <Button
-              variant="destructive"
+              variant="ghost"
               size="sm"
               onClick={() => removeRecord(record.id)}
-              className="h-8 flex-none"
+              className="h-8 w-8 flex-none p-0 text-muted-foreground hover:text-foreground"
+              aria-label={`Remove record ${index + 1}`}
             >
-              Remove
+              ✕
             </Button>
           </div>
         </div>

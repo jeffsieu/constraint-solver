@@ -21,23 +21,18 @@ export function SolutionDisplay({
   targetValue,
   hoveredRecordId,
   onHoverRecord,
-}: SolutionDisplayProps) {
+  showCard = true,
+}: SolutionDisplayProps & { showCard?: boolean }) {
   const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(false);
 
-  // Format numbers based on unit type
-  const formatValue = (value: number) => {
-    return unit === "occurrences"
-      ? Math.round(value).toString()
-      : value.toFixed(1);
-  };
+  const formatValue = (value: number) =>
+    unit === "occurrences" ? Math.round(value).toString() : value.toFixed(1);
 
-  // Generate colors for pie chart
   const generateColor = (index: number, total: number) => {
-    const hue = (index * 360) / total;
+    const hue = (index * 360) / Math.max(total, 1);
     return `hsl(${hue}, 70%, 60%)`;
   };
 
-  // Prepare pie chart data
   const selectedRecordsWithWeight = solution.selectedRecords
     .filter((sr) => sr.weight > 0)
     .map((sr) => {
@@ -45,32 +40,37 @@ export function SolutionDisplay({
       const recordIndex = records.findIndex((r) => r.id === sr.recordId);
       return { ...sr, record, recordIndex };
     })
-    .filter((sr) => sr.record !== undefined);
+    .filter((sr) => sr.record !== undefined) as Array<{
+    recordId: string;
+    weight: number;
+    record: Record;
+    recordIndex: number;
+  }>;
 
   const pieChartData = selectedRecordsWithWeight.map((sr, index) => ({
     id: sr.recordId,
     label: `#${sr.recordIndex + 1} ${
-      sr.record!.attributes.join(" + ") || "No attributes"
+      sr.record.attributes.join(" + ") || "No attributes"
     }`,
     value: sr.weight,
     color: generateColor(index, selectedRecordsWithWeight.length),
   }));
 
-  return (
-    <Card className="p-6 space-y-6">
+  const content = (
+    <>
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Solution</h2>
+        <h2 className="text-2xl font-bold text-foreground">Best match</h2>
       </div>
 
       {/* Collapsible Total Value & Requirement Breakdown */}
       {solution.minimumRequirements.length > 0 ||
       (solution.maximumRequirements &&
         solution.maximumRequirements.length > 0) ? (
-        <div className="border border-primary/20 rounded-lg overflow-hidden">
+        <div className="rounded-md border border-foreground bg-background shadow-[2px_2px_0_0_var(--color-foreground)] overflow-hidden">
           {/* Total Value Header (Clickable) */}
           <button
             onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
-            className="w-full p-4 bg-primary/10 hover:bg-primary/15 transition-colors"
+            className="w-full p-4 bg-background hover:bg-background/95 transition-transform"
           >
             <div className="flex items-center justify-between mb-2">
               <div className="text-left flex-1">
@@ -96,7 +96,7 @@ export function SolutionDisplay({
                 />
               </svg>
             </div>
-            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <div className="h-2 bg-secondary rounded-full overflow-hidden border border-border">
               <div
                 className="h-full bg-primary transition-all duration-300"
                 style={{
@@ -111,7 +111,7 @@ export function SolutionDisplay({
 
           {/* Expanded Requirement Breakdown */}
           {isBreakdownExpanded && (
-            <div className="p-4 border-t border-primary/20">
+            <div className="p-4 border-t border-border">
               {/* Minimum Requirements Progress */}
               {solution.minimumRequirements.length > 0 && (
                 <div className="mb-6">
@@ -135,7 +135,7 @@ export function SolutionDisplay({
                               {formatValue(req.target)}
                             </span>
                           </div>
-                          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-2 bg-secondary rounded-full overflow-hidden border border-border">
                             <div
                               className="h-full bg-primary transition-all duration-300"
                               style={{ width: `${progress}%` }}
@@ -172,7 +172,7 @@ export function SolutionDisplay({
                                 {formatValue(req.target)}
                               </span>
                             </div>
-                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                            <div className="h-2 bg-secondary rounded-full overflow-hidden border border-border">
                               <div
                                 className={`h-full transition-all duration-300 ${
                                   utilization > 95
@@ -193,7 +193,7 @@ export function SolutionDisplay({
         </div>
       ) : (
         /* Non-collapsible Total Value when no requirements */
-        <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+        <div className="p-4 rounded-md border border-foreground bg-background shadow-[2px_2px_0_0_var(--color-foreground)]">
           <div className="text-sm text-muted-foreground mb-1">Total</div>
           <div className="text-3xl font-bold text-primary mb-2">
             {formatValue(solution.totalValue)} / {formatValue(targetValue)}{" "}
@@ -236,9 +236,7 @@ export function SolutionDisplay({
             {/* Records List */}
             <div className="space-y-2">
               {selectedRecordsWithWeight.map((sr) => {
-                const recordIndex = records.findIndex(
-                  (r) => r.id === sr.recordId
-                );
+                const recordIndex = sr.recordIndex;
                 const colorIndex = selectedRecordsWithWeight.findIndex(
                   (item) => item.recordId === sr.recordId
                 );
@@ -250,10 +248,10 @@ export function SolutionDisplay({
                 return (
                   <div
                     key={sr.recordId}
-                    className={`p-3 rounded-md flex items-center gap-3 transition-all cursor-pointer ${
+                    className={`p-3 rounded-md flex items-center gap-3 transition-colors cursor-pointer border-2 ${
                       hoveredRecordId === sr.recordId
-                        ? "bg-accent ring-2 ring-primary/50"
-                        : "bg-accent hover:bg-accent/80"
+                        ? "border-primary bg-accent/20"
+                        : "bg-card border-border hover:bg-accent/10"
                     }`}
                     onMouseEnter={() => onHoverRecord?.(sr.recordId)}
                     onMouseLeave={() => onHoverRecord?.(null)}
@@ -265,11 +263,11 @@ export function SolutionDisplay({
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-foreground">
                         #{recordIndex + 1}{" "}
-                        {sr.record!.attributes.join(" + ") || "No attributes"}
+                        {sr.record.attributes.join(" + ") || "No attributes"}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {formatValue(sr.weight)} /{" "}
-                        {formatValue(sr.record!.value)} {unit}
+                        {formatValue(sr.record.value)} {unit}
                       </div>
                     </div>
                   </div>
@@ -283,6 +281,12 @@ export function SolutionDisplay({
           </div>
         )}
       </div>
-    </Card>
+    </>
+  );
+
+  return showCard ? (
+    <Card className="p-6 space-y-6">{content}</Card>
+  ) : (
+    <div className="p-6 space-y-6">{content}</div>
   );
 }
