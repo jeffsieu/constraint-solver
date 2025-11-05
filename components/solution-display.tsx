@@ -287,6 +287,6 @@ export function SolutionDisplay({
   return showCard ? (
     <Card className="p-6 space-y-6">{content}</Card>
   ) : (
-    <div className="p-6 space-y-6">{content}</div>
+    <div className="p-4 space-y-6">{content}</div>
   );
 }

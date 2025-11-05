@@ -17,7 +17,9 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { useIsMobile } from "@/components/ui/use-mobile";
 import { solveProblem } from "@/lib/solver";
+import { ChevronUp } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -33,7 +35,6 @@ import type {
   AttributeGroup,
 } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { testScenarios } from "@/lib/test-scenarios";
 
 type SolverForm = {
   globalUnit: "hours" | "occurrences";
@@ -122,6 +123,8 @@ export default function Home() {
   const [hoveredRecordId, setHoveredRecordId] = useState<string | null>(null);
   const [isSolutionOpen, setIsSolutionOpen] = useState(false);
   const [showStickySpec, setShowStickySpec] = useState(false);
+
+  const isMobile = useIsMobile();
 
   // Reset form when localStorage data hydrates (only once when ready)
   useEffect(() => {
@@ -243,175 +246,337 @@ export default function Home() {
           </div>
 
           {/* Combined Configuration Card - Full Width */}
-          <Card className="p-6 mb-6" id="spec-card">
-            {/* Collapsible Header */}
-            <button
-              onClick={() => setIsSpecExpanded(!isSpecExpanded)}
-              className="w-full flex items-center justify-between mb-4 hover:opacity-70 transition-opacity"
-            >
-              <h2 className="text-2xl font-bold text-foreground">
-                Problem Specification
-              </h2>
-              <svg
-                className={`w-6 h-6 transition-transform ${
-                  isSpecExpanded ? "rotate-180" : ""
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {/* Compact Read-Only View */}
-            {!isSpecExpanded && (
-              <div className="space-y-3 text-sm">
-                <div className="flex flex-wrap gap-x-6 gap-y-2 text-muted-foreground">
-                  <div>
-                    <span className="font-medium text-foreground">Target:</span>{" "}
-                    {targetValue} {globalUnit}
-                  </div>
-                  <div>
-                    <span className="font-medium text-foreground">
-                      Attribute Groups:
-                    </span>{" "}
-                    {attributeGroups.map((g) => g.name).join(", ") || "None"}
-                  </div>
-                </div>
-                <div>
-                  <span className="font-medium text-foreground">
-                    Requirements:
-                  </span>
-                  <div className="mt-2">
-                    {renderRequirementPreview(requirements)}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Expanded Full View */}
-            {isSpecExpanded && (
-              <div className="space-y-8">
-                {/* Target Value Section */}
-                <div>
-                  <h2 className="text-xl font-semibold mb-4 text-foreground">
-                    Target Value
-                  </h2>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <Label htmlFor="unit">
-                        Unit Type (applies to all records)
-                      </Label>
-                      <Select
-                        value={globalUnit}
-                        onValueChange={(val) =>
-                          methods.setValue(
-                            "globalUnit",
-                            val as "hours" | "occurrences"
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-full rounded-md" id="unit">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hours">Hours</SelectItem>
-                          <SelectItem value="occurrences">
-                            Occurrences
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="target">Target Amount</Label>
-                      <Input
-                        id="target"
-                        type="number"
-                        value={targetValue}
-                        onChange={(e) =>
-                          methods.setValue(
-                            "targetValue",
-                            Number(e.target.value)
-                          )
-                        }
-                        min={0}
-                        step={0.1}
+          <div className={isMobile ? "mb-6" : ""} id="spec-card">
+            <div className={isMobile ? "" : ""}>
+              {!isMobile && (
+                <Card className="p-6 mb-6">
+                  {/* Collapsible Header */}
+                  <button
+                    onClick={() => setIsSpecExpanded(!isSpecExpanded)}
+                    className="w-full flex items-center justify-between mb-4 hover:opacity-70 transition-opacity"
+                  >
+                    <h2 className="text-2xl font-bold text-foreground">
+                      Problem Specification
+                    </h2>
+                    <svg
+                      className={`w-6 h-6 transition-transform ${
+                        isSpecExpanded ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
                       />
-                    </div>
-                  </div>
-                </div>
+                    </svg>
+                  </button>
 
-                {/* Attribute Groups Section */}
-                <div>
-                  <h2 className="text-xl font-semibold mb-4 text-foreground">
-                    Attribute Groups
-                  </h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Define mutually exclusive attribute groups. Each record can
-                    have at most one attribute from each group.
-                  </p>
-                  <AttributeGroupsInput
-                    attributeGroups={attributeGroups}
-                    setAttributeGroups={(g) =>
-                      methods.setValue("attributeGroups", g)
-                    }
-                  />
-                  {/* Requirements Tree - placed below Attribute Groups */}
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold mb-3 text-foreground">
-                      Requirements
-                    </h3>
-                    <RequirementsTree
-                      requirement={requirements}
-                      setRequirement={(r) =>
-                        methods.setValue("requirements", r)
-                      }
-                      attributeGroups={attributeGroups}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </Card>
+                  {/* Compact Read-Only View */}
+                  {!isSpecExpanded && (
+                    <div className="space-y-3 text-sm">
+                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-muted-foreground">
+                        <div>
+                          <span className="font-medium text-foreground">
+                            Target:
+                          </span>{" "}
+                          {targetValue} {globalUnit}
+                        </div>
+                        <div>
+                          <span className="font-medium text-foreground">
+                            Attribute Groups:
+                          </span>{" "}
+                          {attributeGroups.map((g) => g.name).join(", ") ||
+                            "None"}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="font-medium text-foreground">
+                          Requirements:
+                        </span>
+                        <div className="mt-2">
+                          {renderRequirementPreview(requirements)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expanded Full View */}
+                  {isSpecExpanded && (
+                    <div className="space-y-8">
+                      {/* Target Value Section */}
+                      <div>
+                        <h2 className="text-xl font-semibold mb-4 text-foreground">
+                          Target Value
+                        </h2>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label htmlFor="unit">
+                              Unit Type (applies to all records)
+                            </Label>
+                            <Select
+                              value={globalUnit}
+                              onValueChange={(val) =>
+                                methods.setValue(
+                                  "globalUnit",
+                                  val as "hours" | "occurrences"
+                                )
+                              }
+                            >
+                              <SelectTrigger
+                                className="w-full rounded-md"
+                                id="unit"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="hours">Hours</SelectItem>
+                                <SelectItem value="occurrences">
+                                  Occurrences
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="target">Target Amount</Label>
+                            <Input
+                              id="target"
+                              type="number"
+                              value={targetValue}
+                              onChange={(e) =>
+                                methods.setValue(
+                                  "targetValue",
+                                  Number(e.target.value)
+                                )
+                              }
+                              min={0}
+                              step={0.1}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Attribute Groups Section */}
+                      <div>
+                        <h2 className="text-xl font-semibold mb-4 text-foreground">
+                          Attribute Groups
+                        </h2>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Define mutually exclusive attribute groups. Each
+                          record can have at most one attribute from each group.
+                        </p>
+                        <AttributeGroupsInput
+                          attributeGroups={attributeGroups}
+                          setAttributeGroups={(g) =>
+                            methods.setValue("attributeGroups", g)
+                          }
+                        />
+                        {/* Requirements Tree - placed below Attribute Groups */}
+                        <div className="mt-6">
+                          <h3 className="text-lg font-semibold mb-3 text-foreground">
+                            Requirements
+                          </h3>
+                          <RequirementsTree
+                            requirement={requirements}
+                            setRequirement={(r) =>
+                              methods.setValue("requirements", r)
+                            }
+                            attributeGroups={attributeGroups}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {isMobile && (
+                <>
+                  {/* Mobile: No card wrapper */}
+                  {/* Collapsible Header */}
+                  <button
+                    onClick={() => setIsSpecExpanded(!isSpecExpanded)}
+                    className="w-full flex items-center justify-between mb-4 hover:opacity-70 transition-opacity"
+                  >
+                    <h2 className="text-2xl font-bold text-foreground">
+                      Problem Specification
+                    </h2>
+                    <svg
+                      className={`w-6 h-6 transition-transform ${
+                        isSpecExpanded ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Compact Read-Only View */}
+                  {!isSpecExpanded && (
+                    <div className="space-y-3 text-sm">
+                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-muted-foreground">
+                        <div>
+                          <span className="font-medium text-foreground">
+                            Target:
+                          </span>{" "}
+                          {targetValue} {globalUnit}
+                        </div>
+                        <div>
+                          <span className="font-medium text-foreground">
+                            Attribute Groups:
+                          </span>{" "}
+                          {attributeGroups.map((g) => g.name).join(", ") ||
+                            "None"}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="font-medium text-foreground">
+                          Requirements:
+                        </span>
+                        <div className="mt-2">
+                          {renderRequirementPreview(requirements)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expanded Full View */}
+                  {isSpecExpanded && (
+                    <div className="space-y-8">
+                      {/* Target Value Section */}
+                      <div>
+                        <h2 className="text-xl font-semibold mb-4 text-foreground">
+                          Target Value
+                        </h2>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label htmlFor="unit">
+                              Unit Type (applies to all records)
+                            </Label>
+                            <Select
+                              value={globalUnit}
+                              onValueChange={(val) =>
+                                methods.setValue(
+                                  "globalUnit",
+                                  val as "hours" | "occurrences"
+                                )
+                              }
+                            >
+                              <SelectTrigger
+                                className="w-full rounded-md"
+                                id="unit"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="hours">Hours</SelectItem>
+                                <SelectItem value="occurrences">
+                                  Occurrences
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="target">Target Amount</Label>
+                            <Input
+                              id="target"
+                              type="number"
+                              value={targetValue}
+                              onChange={(e) =>
+                                methods.setValue(
+                                  "targetValue",
+                                  Number(e.target.value)
+                                )
+                              }
+                              min={0}
+                              step={0.1}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Attribute Groups Section */}
+                      <div>
+                        <h2 className="text-xl font-semibold mb-4 text-foreground">
+                          Attribute Groups
+                        </h2>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Define mutually exclusive attribute groups. Each
+                          record can have at most one attribute from each group.
+                        </p>
+                        <AttributeGroupsInput
+                          attributeGroups={attributeGroups}
+                          setAttributeGroups={(g) =>
+                            methods.setValue("attributeGroups", g)
+                          }
+                        />
+                        {/* Requirements Tree - placed below Attribute Groups */}
+                        <div className="mt-6">
+                          <h3 className="text-lg font-semibold mb-3 text-foreground">
+                            Requirements
+                          </h3>
+                          <RequirementsTree
+                            requirement={requirements}
+                            setRequirement={(r) =>
+                              methods.setValue("requirements", r)
+                            }
+                            attributeGroups={attributeGroups}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Divider between spec and records on mobile */}
+          {isMobile && <div className="border-t border-border my-6" />}
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Left: Records */}
             <div className="space-y-6">
-              <Card className="p-6">
-                <div className="mb-4">
-                  <h2 className="text-xl font-semibold text-foreground mb-3">
+              {!isMobile && (
+                <Card className="p-6">
+                  <h2 className="text-2xl font-bold text-foreground mb-4">
                     Records
                   </h2>
-                  <div className="flex flex-wrap gap-2">
-                    {testScenarios.map((scenario, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="rounded-md"
-                        onClick={() => {
-                          methods.setValue("records", scenario.records);
-                        }}
-                      >
-                        {scenario.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <RecordInput
-                  records={records}
-                  setRecords={(r) => methods.setValue("records", r)}
-                  attributeGroups={attributeGroups}
-                  hoveredRecordId={hoveredRecordId}
-                  onHoverRecord={setHoveredRecordId}
-                />
-              </Card>
+                  <RecordInput
+                    records={records}
+                    setRecords={(r) => methods.setValue("records", r)}
+                    attributeGroups={attributeGroups}
+                    hoveredRecordId={hoveredRecordId}
+                    onHoverRecord={setHoveredRecordId}
+                  />
+                </Card>
+              )}
+
+              {isMobile && (
+                <>
+                  <h2 className="text-2xl font-bold text-foreground mb-4">
+                    Records
+                  </h2>
+                  <RecordInput
+                    records={records}
+                    setRecords={(r) => methods.setValue("records", r)}
+                    attributeGroups={attributeGroups}
+                    hoveredRecordId={hoveredRecordId}
+                    onHoverRecord={setHoveredRecordId}
+                  />
+                </>
+              )}
+
               {error && (
                 <div className="p-4 bg-destructive/10 border border-destructive rounded-md">
                   <p className="text-destructive font-medium">{error}</p>
@@ -466,45 +631,43 @@ export default function Home() {
               <div className="md:hidden">
                 <div className="fixed inset-x-4 bottom-4 z-50">
                   <button
-                    className="w-full rounded-md border border-border bg-card p-3 shadow-md transition-colors text-left cursor-pointer"
+                    className="w-full rounded-md border-2 border-border bg-card p-3 transition-colors text-left cursor-pointer"
                     onClick={() => setIsSolutionOpen(true)}
                   >
                     {/* Summary line: show total value / target */}
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-muted-foreground mb-1">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm text-muted-foreground">
                           Best match
                         </div>
-                        <div className="text-lg font-semibold text-foreground mb-2">
-                          {solution
-                            ? `${
-                                globalUnit === "occurrences"
-                                  ? Math.round(solution.totalValue)
-                                  : solution.totalValue.toFixed(1)
-                              } / ${
-                                globalUnit === "occurrences"
-                                  ? Math.round(targetValue)
-                                  : targetValue.toFixed(1)
-                              } ${globalUnit}`
-                            : "No solution"}
+                        <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="text-lg font-semibold text-foreground">
+                        {solution
+                          ? `${
+                              globalUnit === "occurrences"
+                                ? Math.round(solution.totalValue)
+                                : solution.totalValue.toFixed(1)
+                            } / ${
+                              globalUnit === "occurrences"
+                                ? Math.round(targetValue)
+                                : targetValue.toFixed(1)
+                            } ${globalUnit}`
+                          : "No solution"}
+                      </div>
+                      {solution && (
+                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all duration-300"
+                            style={{
+                              width: `${Math.min(
+                                (solution.totalValue / targetValue) * 100,
+                                100
+                              )}%`,
+                            }}
+                          />
                         </div>
-                        {solution && (
-                          <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-all duration-300"
-                              style={{
-                                width: `${Math.min(
-                                  (solution.totalValue / targetValue) * 100,
-                                  100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Tap to view
-                      </div>
+                      )}
                     </div>
                   </button>
                 </div>
@@ -517,7 +680,7 @@ export default function Home() {
                     <VisuallyHidden>
                       <DrawerTitle>Best match</DrawerTitle>
                     </VisuallyHidden>
-                    <div className="p-4 overflow-y-auto">
+                    <div className="overflow-y-auto">
                       {solutionReady && solution ? (
                         <SolutionDisplay
                           solution={solution}
