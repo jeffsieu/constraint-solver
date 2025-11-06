@@ -18,3 +18,8 @@ export function generateRecordColor(recordId: string) {
   // Using higher lightness (0.85) and lower chroma (0.1) for pastel colors
   return `oklch(0.85 0.1 ${hue})`;
 }
+
+export function formatAttributeCombination(attributes: string[]) {
+  const sorted = attributes.toSorted();
+  return sorted.length > 0 ? sorted.join(" + ") : "No attributes";
+}

@@ -144,41 +144,17 @@ function solveProblemScaled(
           });
         }
       } else if (req.constraint === "minimum") {
-        // For min with attributes: cap other attributes in the same groups
+        // For min with attributes: limit total weight of records missing the combo
         if (useAttributeConstraint) {
-          // Get all groups that contain any of the required attributes
-          const affectedGroups = new Map<string, Set<string>>();
-
-          req.attributes.forEach((minAttr) => {
-            const groupAttrs = attributeToGroupMap[minAttr] || [];
-            groupAttrs.forEach((attr) => {
-              // Find which group this belongs to by checking all attribute groups
-              for (const group of attributeGroups) {
-                if (group.attributes.includes(attr)) {
-                  if (!affectedGroups.has(group.id)) {
-                    affectedGroups.set(group.id, new Set(group.attributes));
-                  }
-                  break;
-                }
-              }
-            });
-          });
-
-          // For each group, cap the attributes that are NOT in req.attributes
-          affectedGroups.forEach((groupAttrs) => {
-            groupAttrs.forEach((attr) => {
-              if (!req.attributes.includes(attr)) {
-                const otherConstraint = `attribute_${attr}`;
-                if (!constraints[otherConstraint])
-                  constraints[otherConstraint] = {};
-                const proposedMax = targetValue - req.value;
-                constraints[otherConstraint].max = Math.min(
-                  constraints[otherConstraint].max ?? proposedMax,
-                  proposedMax
-                );
-              }
-            });
-          });
+          const constraintName = `not_attribute_${req.attributes
+            .toSorted()
+            .join("_")}`;
+          if (!constraints[constraintName]) constraints[constraintName] = {};
+          const proposedMax = targetValue - req.value;
+          constraints[constraintName].max = Math.min(
+            constraints[constraintName].max ?? proposedMax,
+            proposedMax
+          );
         }
         minimumRequirements.push({
           attributes: req.attributes,
@@ -268,6 +244,47 @@ function solveProblemScaled(
     multiAttrSubsets.forEach((subset) => {
       const constraintName = `attribute_${subset.join("_")}`;
       variables[varName][constraintName] = 1;
+    });
+
+    // Add "not_attribute" coefficients for combinations this record does NOT match
+    // Get all attribute groups
+    const allGroupAttributes: string[][] = attributeGroups.map(
+      (group) => group.attributes
+    );
+
+    // Generate all possible combinations (cartesian product of all groups)
+    const generateAllCombinations = (groups: string[][]): string[][] => {
+      if (groups.length === 0) return [[]];
+      if (groups.length === 1) return groups[0].map((attr) => [attr]);
+
+      const [firstGroup, ...restGroups] = groups;
+      const restCombinations = generateAllCombinations(restGroups);
+
+      const result: string[][] = [];
+      for (const attr of firstGroup) {
+        for (const restCombo of restCombinations) {
+          result.push([attr, ...restCombo]);
+        }
+      }
+      return result;
+    };
+
+    const allCombinations = generateAllCombinations(allGroupAttributes);
+
+    // For each possible combination, check if this record matches it
+    allCombinations.forEach((combination) => {
+      // Check if record has all attributes in this combination
+      const matchesCombination = combination.every((attr) =>
+        record.attributes.includes(attr)
+      );
+
+      // If record does NOT match this combination, add coefficient for "not_attribute"
+      if (!matchesCombination) {
+        const constraintName = `not_attribute_${combination
+          .toSorted()
+          .join("_")}`;
+        variables[varName][constraintName] = 1;
+      }
     });
 
     variables[varName][varName] = 1;

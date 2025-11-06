@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useHoveredEntity } from "@/hooks/use-hovered-entity";
 
 interface PieChartProps {
   data: {
@@ -8,16 +10,28 @@ interface PieChartProps {
     label: string;
     value: number;
     color: string;
+    combinationKey: string;
   }[];
-  hoveredRecordId: string | null;
-  onHoverRecord: (id: string | null) => void;
 }
 
-export function PieChart({
-  data,
-  hoveredRecordId,
-  onHoverRecord,
-}: PieChartProps) {
+export function PieChart({ data }: PieChartProps) {
+  const { hoveredEntity, setHoveredEntity } = useHoveredEntity();
+  const combinationByRecordId = useMemo(() => {
+    const map = new Map<string, string>();
+    data.forEach((item) => {
+      map.set(item.id, item.combinationKey);
+    });
+    return map;
+  }, [data]);
+
+  const hoveredRecordId =
+    hoveredEntity?.type === "record" ? hoveredEntity.recordId : null;
+  const hoveredCombination =
+    hoveredEntity?.type === "combination"
+      ? hoveredEntity.combination
+      : hoveredEntity?.type === "record"
+      ? combinationByRecordId.get(hoveredEntity.recordId) ?? null
+      : null;
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
   if (total === 0) {
@@ -98,6 +112,24 @@ export function PieChart({
         style={{ maxHeight: "300px" }}
       >
         {slices.map((slice) => {
+          const hasRecordHover = hoveredRecordId !== null;
+          const hasCombinationHover =
+            hoveredCombination !== null && !hasRecordHover;
+          const isRecordMatch = hoveredRecordId === slice.id;
+          const isCombinationMatch =
+            hoveredCombination === slice.combinationKey;
+          const shouldDim = hasRecordHover
+            ? !isRecordMatch
+            : hasCombinationHover
+            ? !isCombinationMatch
+            : false;
+          const activeClass = isRecordMatch
+            ? "opacity-100 scale-105"
+            : isCombinationMatch && !hasRecordHover
+            ? "opacity-100"
+            : "opacity-90 hover:opacity-100";
+          const baseClass = shouldDim ? "opacity-40" : activeClass;
+
           // Special case: if this is a full circle, draw it as a circle element
           if (slice.percentage >= 99.99) {
             return (
@@ -109,19 +141,24 @@ export function PieChart({
                   fill={slice.color}
                   stroke="var(--color-foreground)"
                   strokeWidth="1"
-                  className={cn(
-                    "transition-all cursor-pointer",
-                    hoveredRecordId === slice.id
-                      ? "opacity-100 scale-105"
-                      : hoveredRecordId
-                      ? "opacity-50"
-                      : "opacity-90 hover:opacity-100"
-                  )}
+                  className={cn("transition-all cursor-pointer", baseClass)}
                   style={{
                     transformOrigin: `${centerX}px ${centerY}px`,
                   }}
-                  onMouseEnter={() => onHoverRecord(slice.id)}
-                  onMouseLeave={() => onHoverRecord(null)}
+                  onMouseEnter={() =>
+                    setHoveredEntity({
+                      type: "record",
+                      recordId: slice.id,
+                    })
+                  }
+                  onMouseLeave={() =>
+                    setHoveredEntity((current) =>
+                      current?.type === "record" &&
+                      current.recordId === slice.id
+                        ? null
+                        : current
+                    )
+                  }
                 />
               </g>
             );
@@ -135,49 +172,78 @@ export function PieChart({
                 fill={slice.color}
                 stroke="var(--color-foreground)"
                 strokeWidth="1"
-                className={cn(
-                  "transition-all cursor-pointer",
-                  hoveredRecordId === slice.id
-                    ? "opacity-100 scale-105"
-                    : hoveredRecordId
-                    ? "opacity-50"
-                    : "opacity-90 hover:opacity-100"
-                )}
+                className={cn("transition-all cursor-pointer", baseClass)}
                 style={{
                   transformOrigin: `${centerX}px ${centerY}px`,
                 }}
-                onMouseEnter={() => onHoverRecord(slice.id)}
-                onMouseLeave={() => onHoverRecord(null)}
+                onMouseEnter={() =>
+                  setHoveredEntity({
+                    type: "record",
+                    recordId: slice.id,
+                  })
+                }
+                onMouseLeave={() =>
+                  setHoveredEntity((current) =>
+                    current?.type === "record" && current.recordId === slice.id
+                      ? null
+                      : current
+                  )
+                }
               />
             </g>
           );
         })}
       </svg>
       <div className="mt-4 space-y-2 w-full">
-        {slices.map((slice) => (
-          <div
-            key={slice.id}
-            className={cn(
-              "flex items-center gap-2 text-sm transition-opacity cursor-pointer",
-              hoveredRecordId === slice.id
-                ? "opacity-100 font-semibold"
-                : hoveredRecordId
-                ? "opacity-50"
-                : "opacity-100"
-            )}
-            onMouseEnter={() => onHoverRecord(slice.id)}
-            onMouseLeave={() => onHoverRecord(null)}
-          >
+        {slices.map((slice) => {
+          const hasRecordHover = hoveredRecordId !== null;
+          const hasCombinationHover =
+            hoveredCombination !== null && !hasRecordHover;
+          const isRecordMatch = hoveredRecordId === slice.id;
+          const isCombinationMatch =
+            hoveredCombination === slice.combinationKey;
+          const shouldDim = hasRecordHover
+            ? !isRecordMatch
+            : hasCombinationHover
+            ? !isCombinationMatch
+            : false;
+
+          return (
             <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: slice.color }}
-            />
-            <div className="flex-1">{slice.label}</div>
-            <div className="text-muted-foreground">
-              {slice.percentage.toFixed(1)}%
+              key={slice.id}
+              className={cn(
+                "flex items-center gap-2 text-sm transition-opacity cursor-pointer",
+                shouldDim ? "opacity-40" : "opacity-100",
+                isRecordMatch ? "font-semibold" : undefined,
+                isCombinationMatch && !hasRecordHover
+                  ? "font-semibold"
+                  : undefined
+              )}
+              onMouseEnter={() =>
+                setHoveredEntity({
+                  type: "record",
+                  recordId: slice.id,
+                })
+              }
+              onMouseLeave={() =>
+                setHoveredEntity((current) =>
+                  current?.type === "record" && current.recordId === slice.id
+                    ? null
+                    : current
+                )
+              }
+            >
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: slice.color }}
+              />
+              <div className="flex-1">{slice.label}</div>
+              <div className="text-muted-foreground">
+                {slice.percentage.toFixed(1)}%
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -1,27 +1,46 @@
 "use client";
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, Plus } from "lucide-react";
-import { generateRecordColor, cn } from "@/lib/utils";
+import { useHoveredEntity } from "@/hooks/use-hovered-entity";
+import {
+  generateRecordColor,
+  cn,
+  formatAttributeCombination,
+} from "@/lib/utils";
 import type { Record, AttributeGroup } from "@/lib/types";
 
 interface RecordInputProps {
   records: Record[];
   setRecords: (records: Record[]) => void;
   attributeGroups: AttributeGroup[];
-  hoveredRecordId?: string | null;
-  onHoverRecord?: (id: string | null) => void;
 }
 
 export function RecordInput({
   records,
   setRecords,
   attributeGroups,
-  hoveredRecordId,
-  onHoverRecord,
 }: RecordInputProps) {
+  const { hoveredEntity, setHoveredEntity } = useHoveredEntity();
+  const combinationByRecordId = useMemo(() => {
+    const map = new Map<string, string>();
+    records.forEach((record) => {
+      map.set(record.id, formatAttributeCombination(record.attributes));
+    });
+    return map;
+  }, [records]);
+
+  const hoveredRecordId =
+    hoveredEntity?.type === "record" ? hoveredEntity.recordId : null;
+  const hoveredCombination =
+    hoveredEntity?.type === "combination"
+      ? hoveredEntity.combination
+      : hoveredEntity?.type === "record"
+      ? combinationByRecordId.get(hoveredEntity.recordId) ?? null
+      : null;
   const addRecord = () => {
     const newRecord: Record = {
       id: crypto.randomUUID(),
@@ -67,18 +86,32 @@ export function RecordInput({
     <div className="space-y-2">
       {records.map((record, index) => {
         const recordColor = generateRecordColor(record.id);
+        const combinationKey = combinationByRecordId.get(record.id) ?? "";
+        const isRecordHovered = hoveredRecordId === record.id;
+        const isCombinationHovered =
+          hoveredCombination === combinationKey && !isRecordHovered;
         return (
           <div
             key={record.id}
             className={cn(
               "p-3 rounded-md transition-all border-2",
-              hoveredRecordId === record.id
+              isRecordHovered
                 ? "border-primary brightness-90 saturate-125"
+                : isCombinationHovered
+                ? "border-primary/70 brightness-95 saturate-110"
                 : "border-border hover:brightness-90 hover:saturate-125"
             )}
             style={{ backgroundColor: recordColor }}
-            onMouseEnter={() => onHoverRecord?.(record.id)}
-            onMouseLeave={() => onHoverRecord?.(null)}
+            onMouseEnter={() =>
+              setHoveredEntity({ type: "record", recordId: record.id })
+            }
+            onMouseLeave={() =>
+              setHoveredEntity((current) =>
+                current?.type === "record" && current.recordId === record.id
+                  ? null
+                  : current
+              )
+            }
           >
             <div className="flex items-start gap-3">
               <div className="flex items-center gap-3">

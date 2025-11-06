@@ -1,56 +1,92 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { PieChart } from "@/components/pie-chart";
 import { Progress } from "@/components/ui/progress";
-import { generateRecordColor, cn } from "@/lib/utils";
+import {
+  generateRecordColor,
+  cn,
+  formatAttributeCombination,
+} from "@/lib/utils";
 import type { Solution, Record } from "@/lib/types";
+import { useHoveredEntity } from "@/hooks/use-hovered-entity";
 
 interface SolutionDisplayProps {
   solution: Solution;
   records: Record[];
   unit: "hours" | "occurrences";
   targetValue: number;
-  hoveredRecordId?: string | null;
-  onHoverRecord?: (id: string | null) => void;
+  showCard?: boolean;
 }
+
+type SelectedRecordWithMeta = {
+  recordId: string;
+  weight: number;
+  record: Record;
+  recordIndex: number;
+  combinationKey: string;
+};
 
 export function SolutionDisplay({
   solution,
   records,
   unit,
   targetValue,
-  hoveredRecordId,
-  onHoverRecord,
   showCard = true,
-}: SolutionDisplayProps & { showCard?: boolean }) {
+}: SolutionDisplayProps) {
   const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(false);
+  const { hoveredEntity, setHoveredEntity } = useHoveredEntity();
+
+  const combinationByRecordId = useMemo(() => {
+    const map = new Map<string, string>();
+    records.forEach((record) => {
+      map.set(record.id, formatAttributeCombination(record.attributes));
+    });
+    return map;
+  }, [records]);
+
+  const hoveredRecordId =
+    hoveredEntity?.type === "record" ? hoveredEntity.recordId : null;
+  const hoveredCombination =
+    hoveredEntity?.type === "combination"
+      ? hoveredEntity.combination
+      : hoveredEntity?.type === "record"
+      ? combinationByRecordId.get(hoveredEntity.recordId) ?? null
+      : null;
 
   const formatValue = (value: number) =>
     unit === "occurrences" ? Math.round(value).toString() : value.toFixed(1);
 
-  const selectedRecordsWithWeight = solution.selectedRecords
-    .filter((sr) => sr.weight > 0)
-    .map((sr) => {
-      const record = records.find((r) => r.id === sr.recordId);
-      const recordIndex = records.findIndex((r) => r.id === sr.recordId);
-      return { ...sr, record, recordIndex };
-    })
-    .filter((sr) => sr.record !== undefined) as Array<{
-    recordId: string;
-    weight: number;
-    record: Record;
-    recordIndex: number;
-  }>;
+  const recordMetaMap = new Map<string, { record: Record; index: number }>();
+  records.forEach((record, index) => {
+    recordMetaMap.set(record.id, { record, index });
+  });
+
+  const selectedRecordsWithWeight: SelectedRecordWithMeta[] =
+    solution.selectedRecords
+      .filter((sr) => sr.weight > 0)
+      .map((sr) => {
+        const meta = recordMetaMap.get(sr.recordId);
+        if (!meta) return null;
+        return {
+          recordId: sr.recordId,
+          weight: sr.weight,
+          record: meta.record,
+          recordIndex: meta.index,
+          combinationKey:
+            combinationByRecordId.get(sr.recordId) ??
+            formatAttributeCombination(meta.record.attributes),
+        };
+      })
+      .filter((sr): sr is SelectedRecordWithMeta => sr !== null);
 
   const pieChartData = selectedRecordsWithWeight.map((sr) => ({
     id: sr.recordId,
-    label: `#${sr.recordIndex + 1} ${
-      sr.record.attributes.join(" + ") || "No attributes"
-    }`,
+    label: `#${sr.recordIndex + 1} ${sr.combinationKey}`,
     value: sr.weight,
     color: generateRecordColor(sr.recordId),
+    combinationKey: sr.combinationKey,
   }));
 
   const content = (
@@ -215,6 +251,95 @@ export function SolutionDisplay({
       {/* Divider before records */}
       <div className="border-t border-border" />
 
+      {/* Record Breakdown - Combination Totals */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4 text-foreground">
+          Record usage
+        </h3>
+        {records.length > 0 ? (
+          <div className="space-y-2">
+            {(() => {
+              // Calculate totals for each unique attribute combination from ALL records
+              const combinationTotals = new Map<string, number>();
+
+              records.forEach((record) => {
+                const combinationKey = formatAttributeCombination(
+                  record.attributes
+                );
+                const currentTotal = combinationTotals.get(combinationKey) || 0;
+                combinationTotals.set(
+                  combinationKey,
+                  currentTotal + record.value
+                );
+              });
+
+              // Calculate used amounts for each combination from selected records
+              const combinationUsed = new Map<string, number>();
+
+              selectedRecordsWithWeight.forEach((sr) => {
+                const combinationKey = sr.combinationKey;
+                const currentUsed = combinationUsed.get(combinationKey) || 0;
+                combinationUsed.set(combinationKey, currentUsed + sr.weight);
+              });
+
+              // Convert to array and sort by total (descending)
+              const sortedCombinations = Array.from(
+                combinationTotals.entries()
+              ).sort((a, b) => b[1] - a[1]);
+
+              return sortedCombinations.map(([combination, total]) => {
+                const used = combinationUsed.get(combination) || 0;
+                const percentage = total > 0 ? (used / total) * 100 : 0;
+                const isCombinationActive = hoveredCombination === combination;
+
+                return (
+                  <div
+                    key={combination}
+                    className={cn(
+                      "p-3 rounded-md border space-y-2 transition-colors",
+                      isCombinationActive
+                        ? "border-primary bg-accent/20"
+                        : "bg-card border-border hover:bg-accent/10"
+                    )}
+                    onMouseEnter={() =>
+                      setHoveredEntity({
+                        type: "combination",
+                        combination,
+                      })
+                    }
+                    onMouseLeave={() =>
+                      setHoveredEntity((current) =>
+                        current?.type === "combination" &&
+                        current.combination === combination
+                          ? null
+                          : current
+                      )
+                    }
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">
+                        {combination}
+                      </span>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {formatValue(used)} / {formatValue(total)} {unit}
+                      </span>
+                    </div>
+                    <Progress value={percentage} className="h-2" />
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            No records available
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-border" />
+
       {/* Records Breakdown */}
       <div>
         <h3 className="text-lg font-semibold mb-4 text-foreground">
@@ -225,11 +350,7 @@ export function SolutionDisplay({
           <div className="grid gap-6 md:grid-cols-2">
             {/* Pie Chart */}
             <div>
-              <PieChart
-                data={pieChartData}
-                hoveredRecordId={hoveredRecordId ?? null}
-                onHoverRecord={onHoverRecord ?? (() => {})}
-              />
+              <PieChart data={pieChartData} />
             </div>
 
             {/* Records List */}
@@ -237,18 +358,35 @@ export function SolutionDisplay({
               {selectedRecordsWithWeight.map((sr) => {
                 const recordIndex = sr.recordIndex;
                 const color = generateRecordColor(sr.recordId);
+                const isRecordHovered = hoveredRecordId === sr.recordId;
+                const isCombinationHovered =
+                  hoveredCombination === sr.combinationKey && !isRecordHovered;
 
                 return (
                   <div
                     key={sr.recordId}
                     className={cn(
                       "p-3 rounded-md flex items-center gap-3 transition-colors cursor-pointer border-2",
-                      hoveredRecordId === sr.recordId
+                      isRecordHovered
                         ? "border-primary bg-accent/20"
+                        : isCombinationHovered
+                        ? "border-primary/70 bg-accent/10"
                         : "bg-card border-border hover:bg-accent/10"
                     )}
-                    onMouseEnter={() => onHoverRecord?.(sr.recordId)}
-                    onMouseLeave={() => onHoverRecord?.(null)}
+                    onMouseEnter={() =>
+                      setHoveredEntity({
+                        type: "record",
+                        recordId: sr.recordId,
+                      })
+                    }
+                    onMouseLeave={() =>
+                      setHoveredEntity((current) =>
+                        current?.type === "record" &&
+                        current.recordId === sr.recordId
+                          ? null
+                          : current
+                      )
+                    }
                   >
                     <div
                       className="w-4 h-4 rounded-full flex-none"
