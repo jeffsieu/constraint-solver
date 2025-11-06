@@ -151,6 +151,7 @@ function HomeContent() {
       attributeGroups.flatMap((group) => group.attributes)
     );
 
+    // Clean records
     const cleanedRecords = records.map((record) => ({
       ...record,
       attributes: record.attributes.filter((attr) =>
@@ -158,8 +159,27 @@ function HomeContent() {
       ),
     }));
 
+    // Clean requirements recursively
+    const cleanRequirement = (req: Requirement): Requirement => {
+      if (req.type === "simple") {
+        return {
+          ...req,
+          attributes: req.attributes.filter((attr) =>
+            allValidAttributes.has(attr)
+          ),
+        };
+      } else {
+        return {
+          ...req,
+          children: req.children.map(cleanRequirement),
+        };
+      }
+    };
+
+    const cleanedRequirements = cleanRequirement(requirements);
+
     // Only update if there are actual changes to avoid infinite loops
-    const hasChanges = cleanedRecords.some((cleanedRecord, index) => {
+    const recordsHaveChanges = cleanedRecords.some((cleanedRecord, index) => {
       const originalRecord = records[index];
       return (
         cleanedRecord.attributes.length !== originalRecord.attributes.length ||
@@ -169,10 +189,16 @@ function HomeContent() {
       );
     });
 
-    if (hasChanges) {
+    const requirementsHaveChanges = JSON.stringify(cleanedRequirements) !== JSON.stringify(requirements);
+
+    if (recordsHaveChanges) {
       methods.setValue("records", cleanedRecords);
     }
-  }, [attributeGroups, records, methods]);
+
+    if (requirementsHaveChanges) {
+      methods.setValue("requirements", cleanedRequirements);
+    }
+  }, [attributeGroups, records, requirements, methods]);
 
   // Auto-calculate solution when form values change
   useEffect(() => {
