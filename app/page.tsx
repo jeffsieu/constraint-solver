@@ -189,7 +189,8 @@ function HomeContent() {
       );
     });
 
-    const requirementsHaveChanges = JSON.stringify(cleanedRequirements) !== JSON.stringify(requirements);
+    const requirementsHaveChanges =
+      JSON.stringify(cleanedRequirements) !== JSON.stringify(requirements);
 
     if (recordsHaveChanges) {
       methods.setValue("records", cleanedRecords);

@@ -232,7 +232,8 @@ function solveProblemScaled(
     const score = calculateRecordScore(record);
 
     variables[varName] = {
-      value: score,
+      value: 1,
+      score,
     };
 
     // Add coefficients for each attribute and attribute combination
@@ -286,7 +287,7 @@ function solveProblemScaled(
   // Build the YALPS model
   const model: Model = {
     direction: "maximize",
-    objective: "value",
+    objective: "score",
     constraints,
     variables,
     integers: integers.length > 0 ? integers : undefined,
