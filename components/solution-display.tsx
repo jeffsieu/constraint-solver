@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { PieChart } from "@/components/pie-chart";
+import { Progress } from "@/components/ui/progress";
 import type { Solution, Record } from "@/lib/types";
 
 interface SolutionDisplayProps {
@@ -260,15 +261,21 @@ export function SolutionDisplay({
                       className="w-4 h-4 rounded-full flex-none"
                       style={{ backgroundColor: color }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-foreground">
-                        #{recordIndex + 1}{" "}
-                        {sr.record.attributes.join(" + ") || "No attributes"}
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium text-foreground">
+                          #{recordIndex + 1}{" "}
+                          {sr.record.attributes.join(" + ") || "No attributes"}
+                        </div>
+                        <div className="text-sm text-muted-foreground whitespace-nowrap">
+                          {formatValue(sr.weight)} /{" "}
+                          {formatValue(sr.record.value)} {unit}
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatValue(sr.weight)} /{" "}
-                        {formatValue(sr.record.value)} {unit}
-                      </div>
+                      <Progress
+                        value={(sr.weight / sr.record.value) * 100}
+                        className="h-2"
+                      />
                     </div>
                   </div>
                 );

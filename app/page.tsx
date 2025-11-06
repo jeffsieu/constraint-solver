@@ -312,49 +312,51 @@ export default function Home() {
                         <h2 className="text-xl font-semibold mb-4 text-foreground">
                           Target Value
                         </h2>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div>
-                            <Label htmlFor="unit">
-                              Unit Type (applies to all records)
-                            </Label>
-                            <Select
-                              value={globalUnit}
-                              onValueChange={(val) =>
-                                methods.setValue(
-                                  "globalUnit",
-                                  val as "hours" | "occurrences"
-                                )
-                              }
-                            >
-                              <SelectTrigger
-                                className="w-full rounded-md"
-                                id="unit"
+                        <div className="p-4 rounded-lg border bg-card">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <Label htmlFor="unit">
+                                Unit Type (applies to all records)
+                              </Label>
+                              <Select
+                                value={globalUnit}
+                                onValueChange={(val) =>
+                                  methods.setValue(
+                                    "globalUnit",
+                                    val as "hours" | "occurrences"
+                                  )
+                                }
                               >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="hours">Hours</SelectItem>
-                                <SelectItem value="occurrences">
-                                  Occurrences
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="target">Target Amount</Label>
-                            <Input
-                              id="target"
-                              type="number"
-                              value={targetValue}
-                              onChange={(e) =>
-                                methods.setValue(
-                                  "targetValue",
-                                  Number(e.target.value)
-                                )
-                              }
-                              min={0}
-                              step={0.1}
-                            />
+                                <SelectTrigger
+                                  className="w-full rounded-md"
+                                  id="unit"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="hours">Hours</SelectItem>
+                                  <SelectItem value="occurrences">
+                                    Occurrences
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="target">Target Amount</Label>
+                              <Input
+                                id="target"
+                                type="number"
+                                value={targetValue}
+                                onChange={(e) =>
+                                  methods.setValue(
+                                    "targetValue",
+                                    Number(e.target.value)
+                                  )
+                                }
+                                min={0}
+                                step={0.1}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -423,7 +425,7 @@ export default function Home() {
 
                   {/* Compact Read-Only View */}
                   {!isSpecExpanded && (
-                    <div className="space-y-3 text-sm">
+                    <div className="space-y-3 text-sm p-4 rounded-md border-2 border-border bg-card">
                       <div className="flex flex-wrap gap-x-6 gap-y-2 text-muted-foreground">
                         <div>
                           <span className="font-medium text-foreground">
@@ -458,49 +460,51 @@ export default function Home() {
                         <h2 className="text-xl font-semibold mb-4 text-foreground">
                           Target Value
                         </h2>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div>
-                            <Label htmlFor="unit">
-                              Unit Type (applies to all records)
-                            </Label>
-                            <Select
-                              value={globalUnit}
-                              onValueChange={(val) =>
-                                methods.setValue(
-                                  "globalUnit",
-                                  val as "hours" | "occurrences"
-                                )
-                              }
-                            >
-                              <SelectTrigger
-                                className="w-full rounded-md"
-                                id="unit"
+                        <div className="p-4 rounded-lg border bg-card">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <Label htmlFor="unit">
+                                Unit Type (applies to all records)
+                              </Label>
+                              <Select
+                                value={globalUnit}
+                                onValueChange={(val) =>
+                                  methods.setValue(
+                                    "globalUnit",
+                                    val as "hours" | "occurrences"
+                                  )
+                                }
                               >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="hours">Hours</SelectItem>
-                                <SelectItem value="occurrences">
-                                  Occurrences
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label htmlFor="target">Target Amount</Label>
-                            <Input
-                              id="target"
-                              type="number"
-                              value={targetValue}
-                              onChange={(e) =>
-                                methods.setValue(
-                                  "targetValue",
-                                  Number(e.target.value)
-                                )
-                              }
-                              min={0}
-                              step={0.1}
-                            />
+                                <SelectTrigger
+                                  className="w-full rounded-md"
+                                  id="unit"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="hours">Hours</SelectItem>
+                                  <SelectItem value="occurrences">
+                                    Occurrences
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="target">Target Amount</Label>
+                              <Input
+                                id="target"
+                                type="number"
+                                value={targetValue}
+                                onChange={(e) =>
+                                  methods.setValue(
+                                    "targetValue",
+                                    Number(e.target.value)
+                                  )
+                                }
+                                min={0}
+                                step={0.1}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -106,7 +106,7 @@ export function PieChart({
                   r={radius}
                   fill={slice.color}
                   stroke="var(--color-foreground)"
-                  strokeWidth="3"
+                  strokeWidth="1"
                   className={`transition-all cursor-pointer ${
                     hoveredRecordId === slice.id
                       ? "opacity-100 scale-105"
@@ -131,7 +131,7 @@ export function PieChart({
                 d={slice.pathData}
                 fill={slice.color}
                 stroke="var(--color-foreground)"
-                strokeWidth="3"
+                strokeWidth="1"
                 className={`transition-all cursor-pointer ${
                   hoveredRecordId === slice.id
                     ? "opacity-100 scale-105"

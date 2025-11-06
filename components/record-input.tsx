@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Check } from "lucide-react";
 import type { Record, AttributeGroup } from "@/lib/types";
 
 interface RecordInputProps {
@@ -74,51 +75,57 @@ export function RecordInput({
           onMouseEnter={() => onHoverRecord?.(record.id)}
           onMouseLeave={() => onHoverRecord?.(null)}
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex-none w-8 text-center font-bold text-muted-foreground">
-              #{index + 1}
+          <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex-none w-8 text-center font-bold text-muted-foreground">
+                #{index + 1}
+              </div>
+              <div className="flex-none w-24">
+                <Label className="text-xs mb-1 block">Value</Label>
+                <Input
+                  type="number"
+                  value={record.value}
+                  onChange={(e) =>
+                    updateRecord(record.id, { value: Number(e.target.value) })
+                  }
+                  min={0}
+                  step={0.1}
+                  className="h-8"
+                />
+              </div>
             </div>
-            <div className="flex-none w-24">
-              <Label className="text-xs mb-1 block">Value</Label>
-              <Input
-                type="number"
-                value={record.value}
-                onChange={(e) =>
-                  updateRecord(record.id, { value: Number(e.target.value) })
-                }
-                min={0}
-                step={0.1}
-                className="h-8"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              {attributeGroups.map((group) => (
-                <div
-                  key={group.id}
-                  className="inline-flex items-center gap-2 mr-4"
-                >
-                  <Label className="text-xs whitespace-nowrap">
-                    {group.name}:
-                  </Label>
-                  <div className="inline-flex gap-1">
-                    {group.attributes.map((attr) => (
-                      <button
-                        key={attr}
-                        onClick={() =>
-                          toggleAttribute(record.id, group.id, attr)
-                        }
-                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${
-                          record.attributes.includes(attr)
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background border-input hover:bg-accent"
-                        }`}
-                      >
-                        {attr}
-                      </button>
-                    ))}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <Label className="text-xs block">Attributes</Label>
+              <div className="flex flex-col gap-2">
+                {attributeGroups.map((group) => (
+                  <div key={group.id} className="flex items-center gap-2">
+                    <div className="flex gap-1 flex-wrap">
+                      {group.attributes.map((attr) => (
+                        <button
+                          key={attr}
+                          onClick={() =>
+                            toggleAttribute(record.id, group.id, attr)
+                          }
+                          className={`px-3 py-1.5 text-sm rounded border transition-all duration-200 inline-flex items-center gap-1.5 whitespace-nowrap ${
+                            record.attributes.includes(attr)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background border-input hover:bg-accent"
+                          }`}
+                        >
+                          <span
+                            className={`inline-flex transition-all duration-200 overflow-hidden ${
+                              record.attributes.includes(attr) ? "w-3.5" : "w-0"
+                            }`}
+                          >
+                            <Check className="h-3.5 w-3.5 shrink-0" />
+                          </span>
+                          {attr}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             <Button
               variant="ghost"
@@ -135,7 +142,7 @@ export function RecordInput({
       <Button
         onClick={addRecord}
         variant="outline"
-        className="w-full h-8 bg-transparent"
+        className="w-full py-6 bg-transparent text-lg"
       >
         + Add Record
       </Button>

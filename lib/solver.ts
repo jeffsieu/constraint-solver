@@ -5,14 +5,7 @@ import type {
   AttributeGroup,
 } from "./types";
 import type { Model } from "yalps";
-
-// Import the solver dynamically to avoid SSR issues
-let solve: any = null;
-if (typeof window !== "undefined") {
-  import("yalps").then((module) => {
-    solve = module.solve;
-  });
-}
+import { solve } from "yalps";
 
 interface ScaledProblem {
   records: RecordType[];
@@ -104,10 +97,6 @@ function solveProblemScaled(
   targetValue: number,
   attributeGroups: AttributeGroup[]
 ): Solution {
-  if (!solve) {
-    throw new Error("Solver not loaded yet. Please try again.");
-  }
-
   // Assert that all values are integers (i.e., problem has been scaled)
   assertIntegerValues(records, requirements, targetValue);
 
@@ -345,6 +334,8 @@ export function solveProblem(
     scaled.targetValue,
     attributeGroups
   );
+
+  console.log("scaledSolution", scaledSolution);
 
   // Descale the solution
   return {
