@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { PieChart } from "@/components/pie-chart";
 import { Progress } from "@/components/ui/progress";
 import {
   generateRecordColor,
   cn,
-  formatAttributeCombination,
+  formatAttributesByGroup,
+  sortAttributesByGroup,
+  createAttributeOrdering,
 } from "@/lib/utils";
-import type { Solution, Record } from "@/lib/types";
+import type { Solution, Record, AttributeGroup } from "@/lib/types";
 import { useHoveredEntity } from "@/hooks/use-hovered-entity";
 
 interface SolutionDisplayProps {
@@ -17,6 +19,7 @@ interface SolutionDisplayProps {
   records: Record[];
   unit: "hours" | "occurrences";
   targetValue: number;
+  attributeGroups: AttributeGroup[];
   showCard?: boolean;
 }
 
@@ -33,18 +36,63 @@ export function SolutionDisplay({
   records,
   unit,
   targetValue,
+  attributeGroups,
   showCard = true,
 }: SolutionDisplayProps) {
   const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(false);
   const { hoveredEntity, setHoveredEntity } = useHoveredEntity();
 
-  const combinationByRecordId = useMemo(() => {
-    const map = new Map<string, string>();
+  const attributeOrdering = useMemo(
+    () => createAttributeOrdering(attributeGroups),
+    [attributeGroups]
+  );
+
+  const getCombinationSortKey = useCallback(
+    (sortedAttributes: string[]) => {
+      if (sortedAttributes.length === 0) {
+        return "zzzz";
+      }
+
+      const padRank = (rank: number) => rank.toString().padStart(4, "0");
+      const { groupOrder, attributeOrderWithinGroup } = attributeOrdering;
+
+      return sortedAttributes
+        .map((attribute) => {
+          const groupRank = groupOrder.get(attribute);
+          const attributeRank = attributeOrderWithinGroup.get(attribute);
+          const groupPart =
+            groupRank !== undefined ? padRank(groupRank) : "9999";
+          const attributePart =
+            attributeRank !== undefined ? padRank(attributeRank) : "9999";
+          return `${groupPart}-${attributePart}-${attribute.toLowerCase()}`;
+        })
+        .join("|");
+    },
+    [attributeOrdering]
+  );
+
+  const recordCombinationMeta = useMemo(() => {
+    const meta = new Map<
+      string,
+      { label: string; attributes: string[]; sortKey: string }
+    >();
     records.forEach((record) => {
-      map.set(record.id, formatAttributeCombination(record.attributes));
+      const sortedAttributes = sortAttributesByGroup(
+        record.attributes,
+        attributeGroups,
+        attributeOrdering
+      );
+      const label =
+        sortedAttributes.length > 0
+          ? sortedAttributes.join(" + ")
+          : "No attributes";
+      const sortKey = getCombinationSortKey(sortedAttributes);
+
+      meta.set(record.id, { label, attributes: sortedAttributes, sortKey });
     });
-    return map;
-  }, [records]);
+
+    return meta;
+  }, [records, attributeGroups, attributeOrdering, getCombinationSortKey]);
 
   const hoveredRecordId =
     hoveredEntity?.type === "record" ? hoveredEntity.recordId : null;
@@ -52,7 +100,7 @@ export function SolutionDisplay({
     hoveredEntity?.type === "combination"
       ? hoveredEntity.combination
       : hoveredEntity?.type === "record"
-      ? combinationByRecordId.get(hoveredEntity.recordId) ?? null
+      ? recordCombinationMeta.get(hoveredEntity.recordId)?.label ?? null
       : null;
 
   const formatValue = (value: number) =>
@@ -69,14 +117,15 @@ export function SolutionDisplay({
       .map((sr) => {
         const meta = recordMetaMap.get(sr.recordId);
         if (!meta) return null;
+        const combinationMeta = recordCombinationMeta.get(sr.recordId);
         return {
           recordId: sr.recordId,
           weight: sr.weight,
           record: meta.record,
           recordIndex: meta.index,
           combinationKey:
-            combinationByRecordId.get(sr.recordId) ??
-            formatAttributeCombination(meta.record.attributes),
+            combinationMeta?.label ??
+            formatAttributesByGroup(meta.record.attributes, attributeGroups),
         };
       })
       .filter((sr): sr is SelectedRecordWithMeta => sr !== null);
@@ -260,17 +309,38 @@ export function SolutionDisplay({
           <div className="space-y-2">
             {(() => {
               // Calculate totals for each unique attribute combination from ALL records
-              const combinationTotals = new Map<string, number>();
+              const combinationTotals = new Map<
+                string,
+                { total: number; sortKey: string }
+              >();
 
               records.forEach((record) => {
-                const combinationKey = formatAttributeCombination(
-                  record.attributes
-                );
-                const currentTotal = combinationTotals.get(combinationKey) || 0;
-                combinationTotals.set(
-                  combinationKey,
-                  currentTotal + record.value
-                );
+                const combinationMeta = recordCombinationMeta.get(record.id);
+                const fallbackSortedAttributes = combinationMeta
+                  ? combinationMeta.attributes
+                  : sortAttributesByGroup(
+                      record.attributes,
+                      attributeGroups,
+                      attributeOrdering
+                    );
+                const combinationKey =
+                  combinationMeta?.label ??
+                  (fallbackSortedAttributes.length > 0
+                    ? fallbackSortedAttributes.join(" + ")
+                    : "No attributes");
+                const sortKey =
+                  combinationMeta?.sortKey ??
+                  getCombinationSortKey(fallbackSortedAttributes);
+
+                const existing = combinationTotals.get(combinationKey);
+                if (existing) {
+                  existing.total += record.value;
+                } else {
+                  combinationTotals.set(combinationKey, {
+                    total: record.value,
+                    sortKey,
+                  });
+                }
               });
 
               // Calculate used amounts for each combination from selected records
@@ -285,11 +355,20 @@ export function SolutionDisplay({
               // Convert to array and sort by total (descending)
               const sortedCombinations = Array.from(
                 combinationTotals.entries()
-              ).sort((a, b) => b[1] - a[1]);
+              ).sort((a, b) => {
+                const sortKeyA = a[1].sortKey;
+                const sortKeyB = b[1].sortKey;
+                const comparison = sortKeyA.localeCompare(sortKeyB);
+                if (comparison !== 0) {
+                  return comparison;
+                }
+                return a[0].localeCompare(b[0]);
+              });
 
-              return sortedCombinations.map(([combination, total]) => {
+              return sortedCombinations.map(([combination, meta]) => {
                 const used = combinationUsed.get(combination) || 0;
-                const percentage = total > 0 ? (used / total) * 100 : 0;
+                const percentage =
+                  meta.total > 0 ? (used / meta.total) * 100 : 0;
                 const isCombinationActive = hoveredCombination === combination;
 
                 return (
@@ -321,7 +400,7 @@ export function SolutionDisplay({
                         {combination}
                       </span>
                       <span className="text-sm text-muted-foreground whitespace-nowrap">
-                        {formatValue(used)} / {formatValue(total)} {unit}
+                        {formatValue(used)} / {formatValue(meta.total)} {unit}
                       </span>
                     </div>
                     <Progress value={percentage} className="h-2" />
@@ -396,7 +475,7 @@ export function SolutionDisplay({
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-medium text-foreground">
                           #{recordIndex + 1}{" "}
-                          {sr.record.attributes.join(" + ") || "No attributes"}
+                          {sr.combinationKey}
                         </div>
                         <div className="text-sm text-muted-foreground whitespace-nowrap">
                           {formatValue(sr.weight)} /{" "}

@@ -9,7 +9,7 @@ import { useHoveredEntity } from "@/hooks/use-hovered-entity";
 import {
   generateRecordColor,
   cn,
-  formatAttributeCombination,
+  formatAttributesByGroup,
 } from "@/lib/utils";
 import type { Record, AttributeGroup } from "@/lib/types";
 
@@ -28,10 +28,13 @@ export function RecordInput({
   const combinationByRecordId = useMemo(() => {
     const map = new Map<string, string>();
     records.forEach((record) => {
-      map.set(record.id, formatAttributeCombination(record.attributes));
+      map.set(
+        record.id,
+        formatAttributesByGroup(record.attributes, attributeGroups)
+      );
     });
     return map;
-  }, [records]);
+  }, [records, attributeGroups]);
 
   const hoveredRecordId =
     hoveredEntity?.type === "record" ? hoveredEntity.recordId : null;

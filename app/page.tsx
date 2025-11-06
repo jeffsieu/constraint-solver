@@ -636,6 +636,7 @@ function HomeContent() {
                       records={records}
                       unit={globalUnit}
                       targetValue={targetValue}
+                      attributeGroups={attributeGroups}
                     />
                   ) : (
                     <Card className="p-12 text-center">
@@ -734,6 +735,7 @@ function HomeContent() {
                             records={records}
                             unit={globalUnit}
                             targetValue={targetValue}
+                            attributeGroups={attributeGroups}
                             showCard={false}
                           />
                         ) : (
