@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Label } from "@/components/ui/label";
+import { Plus } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -296,7 +297,8 @@ export function RequirementsTree({
                     onClick={() => addChild(req.id, "simple")}
                     className="flex-1"
                   >
-                    + Simple Condition
+                    <Plus className="h-4 w-4 mr-2" />
+                    Simple Condition
                   </Button>
                   <Button
                     variant="outline"
@@ -304,7 +306,8 @@ export function RequirementsTree({
                     onClick={() => addChild(req.id, "complex")}
                     className="flex-1"
                   >
-                    + Complex Condition
+                    <Plus className="h-4 w-4 mr-2" />
+                    Complex Condition
                   </Button>
                 </div>
               </>

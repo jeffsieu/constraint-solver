@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import type { Record, AttributeGroup } from "@/lib/types";
 
 interface RecordInputProps {
@@ -140,7 +140,8 @@ export function RecordInput({
         </div>
       ))}
       <Button onClick={addRecord} variant="outline" className="w-full">
-        + Add Record
+        <Plus className="h-4 w-4 mr-2" />
+        Add Record
       </Button>
     </div>
   );

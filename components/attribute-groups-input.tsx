@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Plus } from "lucide-react";
 import type { AttributeGroup } from "@/lib/types";
 
 interface AttributeGroupsInputProps {
@@ -47,11 +48,27 @@ export function AttributeGroupsInput({
 
   return (
     <div className="space-y-4">
-      {attributeGroups.map((group) => (
+      {attributeGroups.map((group, index) => (
         <div
           key={group.id}
-          className="p-4 border border-border rounded-md space-y-3 bg-card"
+          className="p-4 border border-border rounded-md space-y-3 bg-[#c8e6c9]"
         >
+          {/* Title and remove button */}
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold">
+              Attribute Group {index + 1}
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeGroup(group.id)}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-white"
+              aria-label="Remove group"
+            >
+              ✕
+            </Button>
+          </div>
+
           <div>
             <Label className="text-xs">Group Name</Label>
             <Input
@@ -68,14 +85,6 @@ export function AttributeGroupsInput({
               placeholder="e.g., Day, Night"
             />
           </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => removeGroup(group.id)}
-            className="w-full"
-          >
-            Remove Group
-          </Button>
         </div>
       ))}
       <Button
@@ -83,7 +92,8 @@ export function AttributeGroupsInput({
         variant="outline"
         className="w-full bg-transparent"
       >
-        + Add Attribute Group
+        <Plus className="h-4 w-4 mr-2" />
+        Add Attribute Group
       </Button>
     </div>
   );

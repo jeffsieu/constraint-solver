@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { FormProvider } from "react-hook-form";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ type SolverForm = {
   requirements: Requirement;
 };
 
-export default function Home() {
+function HomeContent() {
   const defaults: SolverForm = {
     globalUnit: "hours",
     attributeGroups: [
@@ -693,5 +693,13 @@ export default function Home() {
         <CopyLink className="hidden md:block fixed right-8 bottom-8 z-50" />
       </div>
     </FormProvider>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <HomeContent />
+    </Suspense>
   );
 }
