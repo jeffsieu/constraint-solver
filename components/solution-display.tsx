@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { PieChart } from "@/components/pie-chart";
 import { Progress } from "@/components/ui/progress";
+import { generateRecordColor } from "@/lib/utils";
 import type { Solution, Record } from "@/lib/types";
 
 interface SolutionDisplayProps {
@@ -29,11 +30,6 @@ export function SolutionDisplay({
   const formatValue = (value: number) =>
     unit === "occurrences" ? Math.round(value).toString() : value.toFixed(1);
 
-  const generateColor = (index: number, total: number) => {
-    const hue = (index * 360) / Math.max(total, 1);
-    return `hsl(${hue}, 70%, 60%)`;
-  };
-
   const selectedRecordsWithWeight = solution.selectedRecords
     .filter((sr) => sr.weight > 0)
     .map((sr) => {
@@ -48,13 +44,13 @@ export function SolutionDisplay({
     recordIndex: number;
   }>;
 
-  const pieChartData = selectedRecordsWithWeight.map((sr, index) => ({
+  const pieChartData = selectedRecordsWithWeight.map((sr) => ({
     id: sr.recordId,
     label: `#${sr.recordIndex + 1} ${
       sr.record.attributes.join(" + ") || "No attributes"
     }`,
     value: sr.weight,
-    color: generateColor(index, selectedRecordsWithWeight.length),
+    color: generateRecordColor(sr.recordId),
   }));
 
   const content = (
@@ -238,13 +234,7 @@ export function SolutionDisplay({
             <div className="space-y-2">
               {selectedRecordsWithWeight.map((sr) => {
                 const recordIndex = sr.recordIndex;
-                const colorIndex = selectedRecordsWithWeight.findIndex(
-                  (item) => item.recordId === sr.recordId
-                );
-                const color = generateColor(
-                  colorIndex,
-                  selectedRecordsWithWeight.length
-                );
+                const color = generateRecordColor(sr.recordId);
 
                 return (
                   <div
