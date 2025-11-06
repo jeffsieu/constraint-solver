@@ -27,6 +27,7 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
+import { cn } from "@/lib/utils";
 import type {
   Record,
   Requirement,
@@ -232,9 +233,10 @@ function HomeContent() {
       <div className="min-h-screen bg-background">
         {/* Sticky spec bar - mobile only, shows when spec card is out of view */}
         <div
-          className={`md:hidden fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md transition-transform duration-300 ${
+          className={cn(
+            "md:hidden fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md transition-transform duration-300",
             showStickySpec ? "translate-y-0" : "-translate-y-full"
-          }`}
+          )}
         >
           <button
             onClick={() => {
@@ -290,9 +292,10 @@ function HomeContent() {
                       Problem Specification
                     </h2>
                     <svg
-                      className={`w-6 h-6 transition-transform ${
+                      className={cn(
+                        "w-6 h-6 transition-transform",
                         isSpecExpanded ? "rotate-180" : ""
-                      }`}
+                      )}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -438,9 +441,10 @@ function HomeContent() {
                       Problem Specification
                     </h2>
                     <svg
-                      className={`w-6 h-6 transition-transform ${
+                      className={cn(
+                        "w-6 h-6 transition-transform",
                         isSpecExpanded ? "rotate-180" : ""
-                      }`}
+                      )}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"

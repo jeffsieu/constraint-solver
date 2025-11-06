@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { PieChart } from "@/components/pie-chart";
 import { Progress } from "@/components/ui/progress";
-import { generateRecordColor } from "@/lib/utils";
+import { generateRecordColor, cn } from "@/lib/utils";
 import type { Solution, Record } from "@/lib/types";
 
 interface SolutionDisplayProps {
@@ -78,9 +78,10 @@ export function SolutionDisplay({
                 </div>
               </div>
               <svg
-                className={`w-6 h-6 text-primary transition-transform ${
+                className={cn(
+                  "w-6 h-6 text-primary transition-transform",
                   isBreakdownExpanded ? "rotate-180" : ""
-                }`}
+                )}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -171,11 +172,12 @@ export function SolutionDisplay({
                             </div>
                             <div className="h-2 bg-secondary rounded-full overflow-hidden border border-border">
                               <div
-                                className={`h-full transition-all duration-300 ${
+                                className={cn(
+                                  "h-full transition-all duration-300",
                                   utilization > 95
                                     ? "bg-destructive"
                                     : "bg-yellow-500"
-                                }`}
+                                )}
                                 style={{ width: `${utilization}%` }}
                               />
                             </div>
@@ -239,11 +241,12 @@ export function SolutionDisplay({
                 return (
                   <div
                     key={sr.recordId}
-                    className={`p-3 rounded-md flex items-center gap-3 transition-colors cursor-pointer border-2 ${
+                    className={cn(
+                      "p-3 rounded-md flex items-center gap-3 transition-colors cursor-pointer border-2",
                       hoveredRecordId === sr.recordId
                         ? "border-primary bg-accent/20"
                         : "bg-card border-border hover:bg-accent/10"
-                    }`}
+                    )}
                     onMouseEnter={() => onHoverRecord?.(sr.recordId)}
                     onMouseLeave={() => onHoverRecord?.(null)}
                   >

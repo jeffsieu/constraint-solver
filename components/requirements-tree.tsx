@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectTrigger,
@@ -26,7 +27,6 @@ export function RequirementsTree({
   setRequirement,
   attributeGroups = [],
 }: RequirementsTreeProps) {
-  const [rawValues, setRawValues] = useState<Record<string, string>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const toggleCollapse = (id: string) => {
@@ -117,15 +117,6 @@ export function RequirementsTree({
     };
 
     setRequirement(removeFromParent(requirement));
-  };
-
-  const updateAttributes = (id: string, value: string) => {
-    setRawValues((prev) => ({ ...prev, [id]: value }));
-    const attributes = value
-      .split(",")
-      .map((a) => a.trim())
-      .filter((a) => a.length > 0);
-    updateRequirement(id, { attributes });
   };
 
   const renderRequirement = (req: Requirement, depth = 0) => {
@@ -231,9 +222,10 @@ export function RequirementsTree({
                 className="flex items-center gap-2 text-sm font-semibold text-foreground hover:opacity-70 transition-opacity"
               >
                 <svg
-                  className={`w-4 h-4 transition-transform ${
+                  className={cn(
+                    "w-4 h-4 transition-transform",
                     collapsed[req.id] ? "-rotate-90" : ""
-                  }`}
+                  )}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"

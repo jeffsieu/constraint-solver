@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, Plus } from "lucide-react";
-import { generateRecordColor } from "@/lib/utils";
+import { generateRecordColor, cn } from "@/lib/utils";
 import type { Record, AttributeGroup } from "@/lib/types";
 
 interface RecordInputProps {
@@ -70,11 +70,12 @@ export function RecordInput({
         return (
           <div
             key={record.id}
-            className={`p-3 rounded-md transition-all border-2 ${
+            className={cn(
+              "p-3 rounded-md transition-all border-2",
               hoveredRecordId === record.id
                 ? "border-primary brightness-90 saturate-125"
                 : "border-border hover:brightness-90 hover:saturate-125"
-            }`}
+            )}
             style={{ backgroundColor: recordColor }}
             onMouseEnter={() => onHoverRecord?.(record.id)}
             onMouseLeave={() => onHoverRecord?.(null)}
@@ -110,18 +111,20 @@ export function RecordInput({
                             onClick={() =>
                               toggleAttribute(record.id, group.id, attr)
                             }
-                            className={`px-3 py-1.5 text-sm rounded border transition-all duration-200 inline-flex items-center gap-1.5 whitespace-nowrap ${
+                            className={cn(
+                              "px-3 py-1.5 text-sm rounded border transition-all duration-200 inline-flex items-center gap-1.5 whitespace-nowrap",
                               record.attributes.includes(attr)
                                 ? "bg-primary text-primary-foreground border-primary"
                                 : "bg-background border-input hover:bg-accent"
-                            }`}
+                            )}
                           >
                             <span
-                              className={`inline-flex transition-all duration-200 overflow-hidden ${
+                              className={cn(
+                                "inline-flex transition-all duration-200 overflow-hidden",
                                 record.attributes.includes(attr)
                                   ? "w-3.5"
                                   : "w-0"
-                              }`}
+                              )}
                             >
                               <Check className="h-3.5 w-3.5 shrink-0" />
                             </span>

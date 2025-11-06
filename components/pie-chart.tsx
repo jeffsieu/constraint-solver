@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+
 interface PieChartProps {
   data: {
     id: string;
@@ -107,13 +109,14 @@ export function PieChart({
                   fill={slice.color}
                   stroke="var(--color-foreground)"
                   strokeWidth="1"
-                  className={`transition-all cursor-pointer ${
+                  className={cn(
+                    "transition-all cursor-pointer",
                     hoveredRecordId === slice.id
                       ? "opacity-100 scale-105"
                       : hoveredRecordId
                       ? "opacity-50"
                       : "opacity-90 hover:opacity-100"
-                  }`}
+                  )}
                   style={{
                     transformOrigin: `${centerX}px ${centerY}px`,
                   }}
@@ -132,13 +135,14 @@ export function PieChart({
                 fill={slice.color}
                 stroke="var(--color-foreground)"
                 strokeWidth="1"
-                className={`transition-all cursor-pointer ${
+                className={cn(
+                  "transition-all cursor-pointer",
                   hoveredRecordId === slice.id
                     ? "opacity-100 scale-105"
                     : hoveredRecordId
                     ? "opacity-50"
                     : "opacity-90 hover:opacity-100"
-                }`}
+                )}
                 style={{
                   transformOrigin: `${centerX}px ${centerY}px`,
                 }}
@@ -153,13 +157,14 @@ export function PieChart({
         {slices.map((slice) => (
           <div
             key={slice.id}
-            className={`flex items-center gap-2 text-sm transition-opacity cursor-pointer ${
+            className={cn(
+              "flex items-center gap-2 text-sm transition-opacity cursor-pointer",
               hoveredRecordId === slice.id
                 ? "opacity-100 font-semibold"
                 : hoveredRecordId
                 ? "opacity-50"
                 : "opacity-100"
-            }`}
+            )}
             onMouseEnter={() => onHoverRecord(slice.id)}
             onMouseLeave={() => onHoverRecord(null)}
           >
