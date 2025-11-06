@@ -6,11 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, Plus } from "lucide-react";
 import { useHoveredEntity } from "@/hooks/use-hovered-entity";
-import {
-  generateRecordColor,
-  cn,
-  formatAttributesByGroup,
-} from "@/lib/utils";
+import { generateRecordColor, cn, formatAttributesByGroup } from "@/lib/utils";
 import type { Record, AttributeGroup } from "@/lib/types";
 
 interface RecordInputProps {

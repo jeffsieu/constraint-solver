@@ -55,7 +55,8 @@ export function sortAttributesByGroup(
     return [] as string[];
   }
 
-  const effectiveOrdering = ordering ?? createAttributeOrdering(attributeGroups);
+  const effectiveOrdering =
+    ordering ?? createAttributeOrdering(attributeGroups);
   const { groupOrder, attributeOrderWithinGroup } = effectiveOrdering;
 
   if (groupOrder.size === 0 && attributeOrderWithinGroup.size === 0) {

@@ -474,8 +474,7 @@ export function SolutionDisplay({
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-medium text-foreground">
-                          #{recordIndex + 1}{" "}
-                          {sr.combinationKey}
+                          #{recordIndex + 1} {sr.combinationKey}
                         </div>
                         <div className="text-sm text-muted-foreground whitespace-nowrap">
                           {formatValue(sr.weight)} /{" "}

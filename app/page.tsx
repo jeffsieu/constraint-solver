@@ -269,7 +269,7 @@ function HomeContent() {
             </button>
           </div>
 
-          <div className="container mx-auto px-4 py-8 max-w-7xl pb-24 md:pb-8">
+          <div className="container mx-auto px-4 py-8 max-w-7xl pb-40 md:pb-8">
             <div className="mb-8">
               <h1 className="text-4xl font-bold text-foreground mb-2">
                 Constraint Satisfaction Solver
