@@ -70,10 +70,10 @@ export function RecordInput({
         return (
           <div
             key={record.id}
-            className={`p-3 rounded-md transition-colors border-2 ${
+            className={`p-3 rounded-md transition-all border-2 ${
               hoveredRecordId === record.id
-                ? "border-primary"
-                : "border-border hover:brightness-95"
+                ? "border-primary brightness-90 saturate-125"
+                : "border-border hover:brightness-90 hover:saturate-125"
             }`}
             style={{ backgroundColor: recordColor }}
             onMouseEnter={() => onHoverRecord?.(record.id)}
