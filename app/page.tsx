@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { FormProvider } from "react-hook-form";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AttributeGroupsInput } from "@/components/attribute-groups-input";
@@ -24,9 +23,8 @@ import { ChevronUp } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
-  DrawerHeader,
   DrawerTitle,
-  DrawerClose,
+  DrawerDescription,
 } from "@/components/ui/drawer";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import type {
@@ -146,6 +144,35 @@ function HomeContent() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Maintain record integrity: remove invalid attributes when attribute groups change
+  useEffect(() => {
+    const allValidAttributes = new Set(
+      attributeGroups.flatMap((group) => group.attributes)
+    );
+
+    const cleanedRecords = records.map((record) => ({
+      ...record,
+      attributes: record.attributes.filter((attr) =>
+        allValidAttributes.has(attr)
+      ),
+    }));
+
+    // Only update if there are actual changes to avoid infinite loops
+    const hasChanges = cleanedRecords.some((cleanedRecord, index) => {
+      const originalRecord = records[index];
+      return (
+        cleanedRecord.attributes.length !== originalRecord.attributes.length ||
+        cleanedRecord.attributes.some(
+          (attr, i) => attr !== originalRecord.attributes[i]
+        )
+      );
+    });
+
+    if (hasChanges) {
+      methods.setValue("records", cleanedRecords);
+    }
+  }, [attributeGroups, records, methods]);
 
   // Auto-calculate solution when form values change
   useEffect(() => {
@@ -664,6 +691,9 @@ function HomeContent() {
                   >
                     <VisuallyHidden>
                       <DrawerTitle>Best match</DrawerTitle>
+                      <DrawerDescription>
+                        View the optimal solution that matches your requirements
+                      </DrawerDescription>
                     </VisuallyHidden>
                     <div className="overflow-y-auto">
                       {solution ? (

@@ -128,17 +128,15 @@ function solveProblemScaled(
     });
   });
 
-  const processRequirement = (req: Requirement, constraintPrefix: string) => {
+  const processRequirement = (req: Requirement) => {
     if (req.type === "simple") {
-      const useAttributeConstraint = req.attributes.length === 1;
-      const constraintName = useAttributeConstraint
-        ? `attribute_${req.attributes[0]}`
-        : `${constraintPrefix}_${req.id}`;
+      const useAttributeConstraint = req.attributes.length >= 1;
+      const constraintName = `attribute_${req.attributes.toSorted().join("_")}`;
 
       if (req.constraint === "maximum") {
         if (!constraints[constraintName]) constraints[constraintName] = {};
         constraints[constraintName].max = req.value;
-        // Only track simple single-attribute maximums for progress display
+        // Track attribute maximums for progress display
         if (useAttributeConstraint) {
           maximumRequirements.push({
             attributes: req.attributes,
@@ -146,21 +144,40 @@ function solveProblemScaled(
           });
         }
       } else if (req.constraint === "minimum") {
-        // For min with single attribute: cap other attributes in the same group
+        // For min with attributes: cap other attributes in the same groups
         if (useAttributeConstraint) {
-          const minAttr = req.attributes[0];
-          const groupAttrs = attributeToGroupMap[minAttr] || [];
-          groupAttrs.forEach((attr) => {
-            if (attr !== minAttr) {
-              const otherConstraint = `attribute_${attr}`;
-              if (!constraints[otherConstraint])
-                constraints[otherConstraint] = {};
-              const proposedMax = targetValue - req.value;
-              constraints[otherConstraint].max = Math.min(
-                constraints[otherConstraint].max ?? proposedMax,
-                proposedMax
-              );
-            }
+          // Get all groups that contain any of the required attributes
+          const affectedGroups = new Map<string, Set<string>>();
+
+          req.attributes.forEach((minAttr) => {
+            const groupAttrs = attributeToGroupMap[minAttr] || [];
+            groupAttrs.forEach((attr) => {
+              // Find which group this belongs to by checking all attribute groups
+              for (const group of attributeGroups) {
+                if (group.attributes.includes(attr)) {
+                  if (!affectedGroups.has(group.id)) {
+                    affectedGroups.set(group.id, new Set(group.attributes));
+                  }
+                  break;
+                }
+              }
+            });
+          });
+
+          // For each group, cap the attributes that are NOT in req.attributes
+          affectedGroups.forEach((groupAttrs) => {
+            groupAttrs.forEach((attr) => {
+              if (!req.attributes.includes(attr)) {
+                const otherConstraint = `attribute_${attr}`;
+                if (!constraints[otherConstraint])
+                  constraints[otherConstraint] = {};
+                const proposedMax = targetValue - req.value;
+                constraints[otherConstraint].max = Math.min(
+                  constraints[otherConstraint].max ?? proposedMax,
+                  proposedMax
+                );
+              }
+            });
           });
         }
         minimumRequirements.push({
@@ -170,13 +187,19 @@ function solveProblemScaled(
       }
       // No min constraint is added directly
     } else {
-      req.children.forEach((child, idx) => {
-        processRequirement(child, `${constraintPrefix}_${req.operator}_${idx}`);
-      });
+      if (req.operator === "AND") {
+        req.children.forEach((child) => {
+          processRequirement(child);
+        });
+      }
+
+      if (req.operator === "OR") {
+        throw new Error("OR operator is not supported in this solver.");
+      }
     }
   };
 
-  processRequirement(requirements, "req");
+  processRequirement(requirements);
 
   // Calculate score for each record based on minimum requirements fulfilled
   const calculateRecordScore = (record: (typeof records)[number]): number => {
@@ -212,9 +235,37 @@ function solveProblemScaled(
       value: score,
     };
 
-    // Add coefficients for each attribute this record has
+    // Add coefficients for each attribute and attribute combination
+    // Single attributes
     record.attributes.forEach((attr) => {
       const constraintName = `attribute_${attr}`;
+      variables[varName][constraintName] = 1;
+    });
+
+    // Multi-attribute combinations (all possible subsets of size > 1)
+    // Generate all non-empty subsets
+    const generateSubsets = (attrs: string[]): string[][] => {
+      const subsets: string[][] = [];
+      const n = attrs.length;
+
+      // Iterate through all possible subsets using bit masking
+      for (let i = 1; i < 1 << n; i++) {
+        const subset: string[] = [];
+        for (let j = 0; j < n; j++) {
+          if (i & (1 << j)) {
+            subset.push(attrs[j]);
+          }
+        }
+        if (subset.length > 1) {
+          subsets.push(subset.toSorted());
+        }
+      }
+      return subsets;
+    };
+
+    const multiAttrSubsets = generateSubsets(record.attributes);
+    multiAttrSubsets.forEach((subset) => {
+      const constraintName = `attribute_${subset.join("_")}`;
       variables[varName][constraintName] = 1;
     });
 
@@ -334,8 +385,6 @@ export function solveProblem(
     scaled.targetValue,
     attributeGroups
   );
-
-  console.log("scaledSolution", scaledSolution);
 
   // Descale the solution
   return {
