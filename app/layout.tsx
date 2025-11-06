@@ -1,6 +1,8 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -20,7 +22,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`font-sans antialiased`}>
-        {children}
+        <NuqsAdapter>{children}</NuqsAdapter>
+        <Toaster duration={1500} />
         <Analytics />
       </body>
     </html>

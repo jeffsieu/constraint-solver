@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm, FormProvider } from "react-hook-form";
+import { FormProvider } from "react-hook-form";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { AttributeGroupsInput } from "@/components/attribute-groups-input";
 import { RecordInput } from "@/components/record-input";
 import { RequirementsTree } from "@/components/requirements-tree";
 import { SolutionDisplay } from "@/components/solution-display";
+import { CopyLink } from "@/components/copy-link";
 import {
   Select,
   SelectTrigger,
@@ -34,7 +35,8 @@ import type {
   Solution,
   AttributeGroup,
 } from "@/lib/types";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useQueryParamsPersistedForm } from "@/hooks/use-query-params-persisted-form";
+import { solverFormSchema } from "@/lib/form-schema";
 
 type SolverForm = {
   globalUnit: "hours" | "occurrences";
@@ -100,11 +102,10 @@ export default function Home() {
     }
   };
 
-  const [persisted, setPersisted, formReady] = useLocalStorage<SolverForm>(
-    "solverForm",
-    defaults
-  );
-  const methods = useForm<SolverForm>({ defaultValues: persisted });
+  const methods = useQueryParamsPersistedForm({
+    schema: solverFormSchema,
+    defaultValues: defaults,
+  });
 
   const globalUnit = methods.watch("globalUnit");
   const attributeGroups = methods.watch("attributeGroups");
@@ -112,33 +113,14 @@ export default function Home() {
   const records = methods.watch("records");
   const requirements = methods.watch("requirements");
 
-  const [solution, setSolution, solutionReady] =
-    useLocalStorage<Solution | null>("solverSolution", null);
-  const [error, setError, errorReady] = useLocalStorage<string | null>(
-    "solverError",
-    null
-  );
-  const [isSpecExpanded, setIsSpecExpanded, specExpandedReady] =
-    useLocalStorage<boolean>("solverSpecExpanded", true);
+  const [solution, setSolution] = useState<Solution | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSpecExpanded, setIsSpecExpanded] = useState(true);
   const [hoveredRecordId, setHoveredRecordId] = useState<string | null>(null);
   const [isSolutionOpen, setIsSolutionOpen] = useState(false);
   const [showStickySpec, setShowStickySpec] = useState(false);
 
   const isMobile = useIsMobile();
-
-  // Reset form when localStorage data hydrates (only once when ready)
-  useEffect(() => {
-    if (formReady) {
-      methods.reset(persisted);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formReady]);
-
-  // Persist form changes to localStorage
-  useEffect(() => {
-    const sub = methods.watch((vals) => setPersisted(vals as SolverForm));
-    return () => sub.unsubscribe();
-  }, [methods, setPersisted]);
 
   // Track scroll position to show/hide sticky spec on mobile
   useEffect(() => {
@@ -167,8 +149,6 @@ export default function Home() {
 
   // Auto-calculate solution when form values change
   useEffect(() => {
-    if (!formReady) return; // Wait until localStorage hydrated
-
     try {
       setError(null);
       const v = methods.getValues();
@@ -185,15 +165,12 @@ export default function Home() {
       setSolution(null);
     }
   }, [
-    formReady,
     records,
     requirements,
     targetValue,
     globalUnit,
     attributeGroups,
     methods,
-    setError,
-    setSolution,
   ]);
 
   return (
@@ -589,14 +566,14 @@ export default function Home() {
             </div>
             {/* Right: Solution */}
             <div className="lg:sticky lg:top-8 lg:self-start space-y-4">
-              {errorReady && error && (
+              {error && (
                 <div className="p-4 bg-destructive/10 border border-destructive rounded-md">
                   <p className="text-destructive font-medium">{error}</p>
                 </div>
               )}
               {/* Desktop / large screens: show Solution card */}
               <div className="hidden md:block">
-                {solutionReady && solution ? (
+                {solution ? (
                   <SolutionDisplay
                     solution={solution}
                     records={records}
@@ -633,7 +610,11 @@ export default function Home() {
 
               {/* Mobile: fixed bottom bar with summary and drawer trigger */}
               <div className="md:hidden">
-                <div className="fixed inset-x-4 bottom-4 z-50">
+                <div className="fixed inset-x-4 bottom-4 z-50 flex flex-col gap-3 items-end">
+                  {/* Copy Link button */}
+                  <CopyLink />
+
+                  {/* Bottom bar with solution summary */}
                   <button
                     className="w-full rounded-md border-2 border-border bg-card p-3 transition-colors text-left cursor-pointer"
                     onClick={() => setIsSolutionOpen(true)}
@@ -685,7 +666,7 @@ export default function Home() {
                       <DrawerTitle>Best match</DrawerTitle>
                     </VisuallyHidden>
                     <div className="overflow-y-auto">
-                      {solutionReady && solution ? (
+                      {solution ? (
                         <SolutionDisplay
                           solution={solution}
                           records={records}
@@ -707,6 +688,9 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Copy Link button - bottom-right on desktop */}
+        <CopyLink className="hidden md:block fixed right-8 bottom-8 z-50" />
       </div>
     </FormProvider>
   );

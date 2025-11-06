@@ -39,8 +39,49 @@ export function MultiSelect({
   onChange,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = React.useState(selected.length);
 
   const toggle = () => setOpen((v) => !v);
+
+  // Calculate how many chips can fit
+  React.useEffect(() => {
+    if (!containerRef.current || selected.length === 0) {
+      setVisibleCount(selected.length);
+      return;
+    }
+
+    const container = containerRef.current;
+    const containerWidth = container.offsetWidth;
+    const chips = container.querySelectorAll<HTMLElement>("[data-chip]");
+
+    let totalWidth = 0;
+    let count = 0;
+    const gap = 8; // gap-2 = 8px
+    const moreIndicatorWidth = 60; // approximate width for "+X more"
+
+    for (let i = 0; i < chips.length; i++) {
+      const chipWidth = chips[i].offsetWidth;
+      const widthNeeded = totalWidth + chipWidth + (i > 0 ? gap : 0);
+
+      // If not the last chip and would need space for indicator
+      if (i < chips.length - 1) {
+        if (widthNeeded + gap + moreIndicatorWidth > containerWidth) {
+          break;
+        }
+      } else {
+        // Last chip, no indicator needed
+        if (widthNeeded > containerWidth) {
+          break;
+        }
+      }
+
+      totalWidth = widthNeeded;
+      count++;
+    }
+
+    setVisibleCount(count);
+  }, [selected]);
 
   const normalizeOption = (
     opt: string | MultiSelectOption
@@ -99,23 +140,34 @@ export function MultiSelect({
           className="w-full flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground justify-between"
           onClick={toggle}
         >
-          <div className="flex-1 flex flex-wrap gap-2">
+          <div
+            ref={containerRef}
+            className="flex-1 flex gap-2 min-w-0 overflow-hidden"
+          >
             {selected.length === 0 ? (
               <span className="text-muted-foreground">{placeholder}</span>
             ) : (
-              selected.map((s) => (
-                <span
-                  key={s}
-                  className="inline-flex items-center gap-2 bg-muted/20 text-sm px-2 py-0.5 rounded-md border border-input"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleOption(s);
-                  }}
-                >
-                  {s}
-                  <span className="ml-1 cursor-pointer text-xs">✕</span>
-                </span>
-              ))
+              <>
+                {selected.slice(0, visibleCount).map((s) => (
+                  <span
+                    key={s}
+                    data-chip
+                    className="inline-flex items-center gap-2 bg-card text-sm px-2 py-0.5 rounded-md border border-input shrink-0 max-w-[200px]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleOption(s);
+                    }}
+                  >
+                    <span className="truncate">{s}</span>
+                    <span className="cursor-pointer text-xs shrink-0">✕</span>
+                  </span>
+                ))}
+                {visibleCount < selected.length && (
+                  <span className="inline-flex items-center text-sm text-muted-foreground shrink-0">
+                    +{selected.length - visibleCount} more
+                  </span>
+                )}
+              </>
             )}
           </div>
         </SelectTrigger>

@@ -139,11 +139,7 @@ export function RecordInput({
           </div>
         </div>
       ))}
-      <Button
-        onClick={addRecord}
-        variant="outline"
-        className="w-full py-6 bg-transparent text-lg"
-      >
+      <Button onClick={addRecord} variant="outline" className="w-full">
         + Add Record
       </Button>
     </div>
