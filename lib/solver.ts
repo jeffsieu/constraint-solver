@@ -2,6 +2,7 @@ import type {
   Record as RecordType,
   Requirement,
   SimpleRequirement,
+  RequirementResult,
   Solution,
   AttributeGroup,
 } from "./types";
@@ -461,6 +462,57 @@ export function solveProblem(
     );
   }
 
+  // Calculate requirement results by traversing the original requirement tree
+  const calculateRequirementResults = (req: Requirement): RequirementResult => {
+    if (req.type === "simple") {
+      const target = req.value;
+
+      // Find the corresponding achievement/usage from bestSolution
+      if (req.constraint === "minimum") {
+        const match = bestSolution.minimumRequirements.find(
+          (mr) =>
+            mr.attributes.length === req.attributes.length &&
+            mr.attributes.every((attr) => req.attributes.includes(attr))
+        );
+
+        return {
+          id: req.id,
+          type: "simple",
+          constraint: "minimum",
+          attributes: req.attributes,
+          target,
+          achieved: match ? match.achieved / scaleFactor : 0,
+        };
+      } else {
+        const match = bestSolution.maximumRequirements?.find(
+          (mr) =>
+            mr.attributes.length === req.attributes.length &&
+            mr.attributes.every((attr) => req.attributes.includes(attr))
+        );
+
+        return {
+          id: req.id,
+          type: "simple",
+          constraint: "maximum",
+          attributes: req.attributes,
+          target,
+          used: match ? match.used / scaleFactor : 0,
+        };
+      }
+    } else {
+      return {
+        id: req.id,
+        type: "complex",
+        operator: req.operator,
+        children: req.children.map((child) =>
+          calculateRequirementResults(child)
+        ),
+      };
+    }
+  };
+
+  const requirementResults = calculateRequirementResults(requirements);
+
   // Descale the best solution
   return {
     totalValue: bestSolution.totalValue / scaleFactor,
@@ -478,5 +530,6 @@ export function solveProblem(
       target: mx.target / scaleFactor,
       used: mx.used / scaleFactor,
     })),
+    requirementResults,
   };
 }

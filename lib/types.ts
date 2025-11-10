@@ -27,6 +27,27 @@ export interface ComplexRequirement {
 
 export type Requirement = SimpleRequirement | ComplexRequirement;
 
+export interface SimpleRequirementResult {
+  id: string;
+  type: "simple";
+  constraint: "minimum" | "maximum";
+  attributes: string[];
+  target: number;
+  achieved?: number;
+  used?: number;
+}
+
+export interface ComplexRequirementResult {
+  id: string;
+  type: "complex";
+  operator: "AND" | "OR";
+  children: RequirementResult[];
+}
+
+export type RequirementResult =
+  | SimpleRequirementResult
+  | ComplexRequirementResult;
+
 export interface Solution {
   totalValue: number;
   selectedRecords: {
@@ -43,4 +64,5 @@ export interface Solution {
     target: number;
     used: number;
   }[];
+  requirementResults?: RequirementResult;
 }

@@ -1,9 +1,8 @@
-"use client";
-
 import { useCallback, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { PieChart } from "@/components/pie-chart";
 import { Progress } from "@/components/ui/progress";
+import { RequirementTreeResult } from "@/components/requirement-tree-result";
 import {
   generateRecordColor,
   cn,
@@ -145,9 +144,68 @@ export function SolutionDisplay({
       </div>
 
       {/* Collapsible Total Value & Requirement Breakdown */}
-      {solution.minimumRequirements.length > 0 ||
-      (solution.maximumRequirements &&
-        solution.maximumRequirements.length > 0) ? (
+      {solution.requirementResults ? (
+        <div className="rounded-md border border-foreground bg-background shadow-[2px_2px_0_0_var(--color-foreground)] overflow-hidden">
+          {/* Total Value Header (Clickable) */}
+          <button
+            onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
+            className="w-full p-4 bg-background hover:bg-background/95 transition-transform"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-left flex-1">
+                <div className="text-sm text-muted-foreground mb-1">Total</div>
+                <div className="text-3xl font-bold text-primary">
+                  {formatValue(solution.totalValue)} /{" "}
+                  {formatValue(targetValue)} {unit}
+                </div>
+              </div>
+              <svg
+                className={cn(
+                  "w-6 h-6 text-primary transition-transform",
+                  isBreakdownExpanded ? "rotate-180" : ""
+                )}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+            <div className="h-2 bg-secondary rounded-full overflow-hidden border border-border">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{
+                  width: `${Math.min(
+                    (solution.totalValue / targetValue) * 100,
+                    100
+                  )}%`,
+                }}
+              />
+            </div>
+          </button>
+
+          {/* Expanded Requirement Breakdown */}
+          {isBreakdownExpanded && (
+            <div className="p-4 border-t border-border">
+              <h4 className="text-sm font-medium mb-3 text-muted-foreground uppercase tracking-wide">
+                Requirements
+              </h4>
+              <RequirementTreeResult
+                requirement={solution.requirementResults}
+                unit={unit}
+                formatValue={formatValue}
+              />
+            </div>
+          )}
+        </div>
+      ) : solution.minimumRequirements.length > 0 ||
+        (solution.maximumRequirements &&
+          solution.maximumRequirements.length > 0) ? (
         <div className="rounded-md border border-foreground bg-background shadow-[2px_2px_0_0_var(--color-foreground)] overflow-hidden">
           {/* Total Value Header (Clickable) */}
           <button
