@@ -1,6 +1,7 @@
 import type {
   Record as RecordType,
   Requirement,
+  SimpleRequirement,
   Solution,
   AttributeGroup,
 } from "./types";
@@ -10,6 +11,13 @@ import { solve } from "yalps";
 interface ScaledProblem {
   records: RecordType[];
   requirements: Requirement;
+  targetValue: number;
+  scaleFactor: number;
+}
+
+interface SimpleScaledProblem {
+  records: RecordType[];
+  requirements: SimpleRequirement[];
   targetValue: number;
   scaleFactor: number;
 }
@@ -91,15 +99,81 @@ function assertIntegerValues(
   }
 }
 
-function solveProblemScaled(
+/**
+ * Recursively expands a requirement tree into all possible combinations of simple requirements.
+ * Each combination represents one way to satisfy the requirement tree when all ORs are resolved.
+ *
+ * For example:
+ * - (1 AND 2) OR (3 AND 4) => [[1, 2], [3, 4]]
+ * - (1 OR 2) AND 3 => [[1, 3], [2, 3]]
+ */
+function expandRequirementCombinations(
+  req: Requirement
+): SimpleRequirement[][] {
+  if (req.type === "simple") {
+    return [[req]];
+  }
+
+  if (req.operator === "AND") {
+    // For AND: take cartesian product of all child combinations
+    // Start with [[]] (one empty combination)
+    let result: SimpleRequirement[][] = [[]];
+
+    for (const child of req.children) {
+      const childCombinations = expandRequirementCombinations(child);
+      const newResult: SimpleRequirement[][] = [];
+
+      // Combine each existing combination with each child combination
+      for (const existingCombo of result) {
+        for (const childCombo of childCombinations) {
+          newResult.push([...existingCombo, ...childCombo]);
+        }
+      }
+
+      result = newResult;
+    }
+
+    return result;
+  }
+
+  if (req.operator === "OR") {
+    // For OR: concatenate all child combinations
+    const result: SimpleRequirement[][] = [];
+
+    for (const child of req.children) {
+      const childCombinations = expandRequirementCombinations(child);
+      result.push(...childCombinations);
+    }
+
+    return result;
+  }
+
+  throw new Error(`Unknown requirement operator: ${(req as any).operator}`);
+}
+
+/**
+ * Creates multiple problem variants by expanding OR operators in the requirement tree.
+ * Each variant represents one possible combination of requirements.
+ */
+function createProblemCombinations(
+  problem: ScaledProblem
+): SimpleScaledProblem[] {
+  const combinations = expandRequirementCombinations(problem.requirements);
+
+  return combinations.map((requirements) => ({
+    records: problem.records,
+    requirements,
+    targetValue: problem.targetValue,
+    scaleFactor: problem.scaleFactor,
+  }));
+}
+
+function solveSimpleProblemScaled(
   records: RecordType[],
-  requirements: Requirement,
+  requirements: SimpleRequirement[],
   targetValue: number,
   attributeGroups: AttributeGroup[]
 ): Solution {
-  // Assert that all values are integers (i.e., problem has been scaled)
-  assertIntegerValues(records, requirements, targetValue);
-
   // Build the LP model for YALPS
   const constraints: {
     [key: string]: { [key: string]: number | undefined } & {
@@ -119,58 +193,43 @@ function solveProblemScaled(
     target: number;
   }> = [];
 
-  // Process requirements tree FIRST to build minimumRequirements and collect minimum combinations
+  // Process simple requirements to build minimumRequirements and collect minimum combinations
   const minimumCombinations: string[][] = [];
 
-  const processRequirement = (req: Requirement) => {
-    if (req.type === "simple") {
-      const useAttributeConstraint = req.attributes.length >= 1;
-      const constraintName = `attribute_${req.attributes.toSorted().join("_")}`;
+  requirements.forEach((req) => {
+    const useAttributeConstraint = req.attributes.length >= 1;
+    const constraintName = `attribute_${req.attributes.toSorted().join("_")}`;
 
-      if (req.constraint === "maximum") {
-        if (!constraints[constraintName]) constraints[constraintName] = {};
-        constraints[constraintName].max = req.value;
-        // Track attribute maximums for progress display
-        if (useAttributeConstraint) {
-          maximumRequirements.push({
-            attributes: req.attributes,
-            target: req.value,
-          });
-        }
-      } else if (req.constraint === "minimum") {
-        // Collect this combination for later "not_attribute" generation
-        if (useAttributeConstraint) {
-          minimumCombinations.push(req.attributes.toSorted());
-          const constraintName = `not_attribute_${req.attributes
-            .toSorted()
-            .join("_")}`;
-          if (!constraints[constraintName]) constraints[constraintName] = {};
-          const proposedMax = targetValue - req.value;
-          constraints[constraintName].max = Math.min(
-            constraints[constraintName].max ?? proposedMax,
-            proposedMax
-          );
-        }
-        minimumRequirements.push({
+    if (req.constraint === "maximum") {
+      if (!constraints[constraintName]) constraints[constraintName] = {};
+      constraints[constraintName].max = req.value;
+      // Track attribute maximums for progress display
+      if (useAttributeConstraint) {
+        maximumRequirements.push({
           attributes: req.attributes,
           target: req.value,
         });
       }
-      // No min constraint is added directly
-    } else {
-      if (req.operator === "AND") {
-        req.children.forEach((child) => {
-          processRequirement(child);
-        });
+    } else if (req.constraint === "minimum") {
+      // Collect this combination for later "not_attribute" generation
+      if (useAttributeConstraint) {
+        minimumCombinations.push(req.attributes.toSorted());
+        const constraintName = `not_attribute_${req.attributes
+          .toSorted()
+          .join("_")}`;
+        if (!constraints[constraintName]) constraints[constraintName] = {};
+        const proposedMax = targetValue - req.value;
+        constraints[constraintName].max = Math.min(
+          constraints[constraintName].max ?? proposedMax,
+          proposedMax
+        );
       }
-
-      if (req.operator === "OR") {
-        throw new Error("OR operator is not supported in this solver.");
-      }
+      minimumRequirements.push({
+        attributes: req.attributes,
+        target: req.value,
+      });
     }
-  };
-
-  processRequirement(requirements);
+  });
 
   // Calculate score for each record based on minimum requirements fulfilled
   const calculateRecordScore = (record: (typeof records)[number]): number => {
@@ -366,27 +425,55 @@ export function solveProblem(
   // Scale the problem first
   const scaled = scaleProblem(records, requirements, targetValue, scaleFactor);
 
-  // Solve with scaled values
-  const scaledSolution = solveProblemScaled(
-    scaled.records,
-    scaled.requirements,
-    scaled.targetValue,
-    attributeGroups
-  );
+  // Expand OR operators into multiple problem combinations
+  const problemCombinations = createProblemCombinations(scaled);
 
-  // Descale the solution
+  // Solve each combination and pick the best one
+  let bestSolution: Solution | null = null;
+  let bestScore = -Infinity;
+
+  for (const simpleProblem of problemCombinations) {
+    try {
+      const scaledSolution = solveSimpleProblemScaled(
+        simpleProblem.records,
+        simpleProblem.requirements,
+        simpleProblem.targetValue,
+        attributeGroups
+      );
+
+      // Calculate a score for this solution (total value achieved)
+      const score = scaledSolution.totalValue;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestSolution = scaledSolution;
+      }
+    } catch (e) {
+      // If this combination has no feasible solution, skip it
+      console.warn("Skipping infeasible combination:", e);
+      continue;
+    }
+  }
+
+  if (!bestSolution) {
+    throw new Error(
+      "No feasible solution found for any combination. Try adjusting your constraints."
+    );
+  }
+
+  // Descale the best solution
   return {
-    totalValue: scaledSolution.totalValue / scaleFactor,
-    selectedRecords: scaledSolution.selectedRecords.map((sr) => ({
+    totalValue: bestSolution.totalValue / scaleFactor,
+    selectedRecords: bestSolution.selectedRecords.map((sr) => ({
       recordId: sr.recordId,
       weight: sr.weight / scaleFactor,
     })),
-    minimumRequirements: scaledSolution.minimumRequirements.map((mr) => ({
+    minimumRequirements: bestSolution.minimumRequirements.map((mr) => ({
       attributes: mr.attributes,
       target: mr.target / scaleFactor,
       achieved: mr.achieved / scaleFactor,
     })),
-    maximumRequirements: scaledSolution.maximumRequirements?.map((mx) => ({
+    maximumRequirements: bestSolution.maximumRequirements?.map((mx) => ({
       attributes: mx.attributes,
       target: mx.target / scaleFactor,
       used: mx.used / scaleFactor,
