@@ -232,10 +232,10 @@ function HomeContent() {
     <FormProvider {...methods}>
       <HoveredEntityProvider>
         <div className="min-h-screen bg-background">
-          {/* Sticky spec bar - mobile only, shows when spec card is out of view */}
+          {/* Sticky spec bar - shows when spec card is out of view */}
           <div
             className={cn(
-              "md:hidden fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md transition-transform duration-300",
+              "fixed top-0 left-0 right-0 z-40 bg-card border-b border-border shadow-md transition-transform duration-300",
               showStickySpec ? "translate-y-0" : "-translate-y-full"
             )}
           >
