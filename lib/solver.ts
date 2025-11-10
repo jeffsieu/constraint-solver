@@ -119,14 +119,8 @@ function solveProblemScaled(
     target: number;
   }> = [];
 
-  // Process requirements tree FIRST to build minimumRequirements
-  // Build attribute -> group mapping from provided attributeGroups param
-  const attributeToGroupMap: Record<string, string[]> = {};
-  attributeGroups.forEach((group) => {
-    group.attributes.forEach((attr) => {
-      attributeToGroupMap[attr] = group.attributes;
-    });
-  });
+  // Process requirements tree FIRST to build minimumRequirements and collect minimum combinations
+  const minimumCombinations: string[][] = [];
 
   const processRequirement = (req: Requirement) => {
     if (req.type === "simple") {
@@ -144,8 +138,9 @@ function solveProblemScaled(
           });
         }
       } else if (req.constraint === "minimum") {
-        // For min with attributes: limit total weight of records missing the combo
+        // Collect this combination for later "not_attribute" generation
         if (useAttributeConstraint) {
+          minimumCombinations.push(req.attributes.toSorted());
           const constraintName = `not_attribute_${req.attributes
             .toSorted()
             .join("_")}`;
@@ -246,33 +241,8 @@ function solveProblemScaled(
       variables[varName][constraintName] = 1;
     });
 
-    // Add "not_attribute" coefficients for combinations this record does NOT match
-    // Get all attribute groups
-    const allGroupAttributes: string[][] = attributeGroups.map(
-      (group) => group.attributes
-    );
-
-    // Generate all possible combinations (cartesian product of all groups)
-    const generateAllCombinations = (groups: string[][]): string[][] => {
-      if (groups.length === 0) return [[]];
-      if (groups.length === 1) return groups[0].map((attr) => [attr]);
-
-      const [firstGroup, ...restGroups] = groups;
-      const restCombinations = generateAllCombinations(restGroups);
-
-      const result: string[][] = [];
-      for (const attr of firstGroup) {
-        for (const restCombo of restCombinations) {
-          result.push([attr, ...restCombo]);
-        }
-      }
-      return result;
-    };
-
-    const allCombinations = generateAllCombinations(allGroupAttributes);
-
-    // For each possible combination, check if this record matches it
-    allCombinations.forEach((combination) => {
+    // Add "not_attribute" coefficients for minimum combinations this record does NOT match
+    minimumCombinations.forEach((combination) => {
       // Check if record has all attributes in this combination
       const matchesCombination = combination.every((attr) =>
         record.attributes.includes(attr)
