@@ -19,7 +19,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="font-sans antialiased">
         <NuqsAdapter>{children}</NuqsAdapter>
-        <Toaster duration={1500} />
+        <Toaster duration={1500} position="bottom-left" />
         <Analytics />
       </body>
     </html>

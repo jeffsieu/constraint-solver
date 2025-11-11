@@ -5,11 +5,13 @@ import { FormProvider } from "react-hook-form";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { AttributeGroupsInput } from "@/components/attribute-groups-input";
 import { RecordInput } from "@/components/record-input";
 import { RequirementsTree } from "@/components/requirements-tree";
 import { SolutionDisplay } from "@/components/solution-display";
 import { CopyLink } from "@/components/copy-link";
+import { toast } from "sonner";
 import {
   Select,
   SelectTrigger,
@@ -19,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { solveProblem } from "@/lib/solver";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Gauge } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -118,6 +120,7 @@ function HomeContent() {
   const [isSpecExpanded, setIsSpecExpanded] = useState(true);
   const [isSolutionOpen, setIsSolutionOpen] = useState(false);
   const [showStickySpec, setShowStickySpec] = useState(false);
+  const [isTestingPerformance, setIsTestingPerformance] = useState(false);
 
   const isMobile = useIsMobile();
 
@@ -227,6 +230,46 @@ function HomeContent() {
     attributeGroups,
     methods,
   ]);
+
+  const runPerformanceTest = () => {
+    setIsTestingPerformance(true);
+
+    // Run test after a short delay to allow UI to update
+    setTimeout(() => {
+      try {
+        const v = methods.getValues();
+        const iterations = 100000;
+
+        const startTime = performance.now();
+
+        for (let i = 0; i < iterations; i++) {
+          solveProblem(
+            v.records,
+            v.requirements,
+            v.targetValue,
+            v.globalUnit,
+            v.attributeGroups
+          );
+        }
+
+        const endTime = performance.now();
+        const totalTime = endTime - startTime;
+        const avgTime = totalTime / iterations;
+
+        toast.success(
+          `Performance: ${iterations} iterations in ${totalTime.toFixed(
+            2
+          )}ms (avg: ${avgTime.toFixed(2)}ms)`
+        );
+      } catch (e) {
+        toast.error(
+          `Error: ${e instanceof Error ? e.message : "Unknown error"}`
+        );
+      } finally {
+        setIsTestingPerformance(false);
+      }
+    }, 100);
+  };
 
   return (
     <FormProvider {...methods}>
@@ -667,8 +710,19 @@ function HomeContent() {
                 {/* Mobile: fixed bottom bar with summary and drawer trigger */}
                 <div className="md:hidden">
                   <div className="fixed inset-x-4 bottom-4 z-50 flex flex-col gap-3 items-end">
-                    {/* Copy Link button */}
-                    <CopyLink />
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={runPerformanceTest}
+                        size="lg"
+                        variant="outline"
+                        disabled={isTestingPerformance}
+                      >
+                        <Gauge className="h-4 w-4 mr-2" />
+                        Test 100K
+                      </Button>
+                      <CopyLink />
+                    </div>
 
                     {/* Bottom bar with solution summary */}
                     <button
@@ -748,8 +802,19 @@ function HomeContent() {
                   </Drawer>
                 </div>
               </div>
-              {/* Copy Link button - bottom-right on desktop */}
-              <CopyLink className="hidden md:block fixed right-8 bottom-8 z-50" />
+              {/* Action buttons - bottom-right on desktop */}
+              <div className="hidden md:flex fixed right-8 bottom-8 z-50 gap-3 flex-col items-end">
+                <Button
+                  onClick={runPerformanceTest}
+                  size="lg"
+                  variant="outline"
+                  disabled={isTestingPerformance}
+                >
+                  <Gauge className="h-4 w-4 mr-2" />
+                  Test 100K
+                </Button>
+                <CopyLink />
+              </div>
             </div>
           </div>
         </div>
